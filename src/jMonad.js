@@ -60,17 +60,23 @@ console: false
 
       jMonad_log = (function () {
         // Mozilla XPCOM is available.
-        if (typeof Components === "object" &&
-              typeof Components.classes === "object") {
-          return Components.classes["@mozilla.org/fuel/application;1"]
-                   .getService(Components.interfaces.fuelIApplication)
-                   .console.log;
-        }
+        try {
+          if (typeof Components === "object" &&
+                typeof Components.classes === "object") {
+              return Components.classes["@mozilla.org/fuel/application;1"]
+                       .getService(Components.interfaces.fuelIApplication)
+                       .console.log;
+          }
+        } catch (e) {/* ignore the error */}
 
         // console.log is available.
         if (typeof console === "object" &&
               typeof console.log === "function") {
           return console.log;
+        }
+
+        if (typeof dump === "function") {
+          return function (msg) { dump(msg +"\n"); };
         }
 
         // Return a black hole.
