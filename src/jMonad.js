@@ -41,24 +41,21 @@ maxlen: 80
 /*global
 window: true,
 Components: false,
-console: false
-*/
-
-/*members "@mozilla.org\/fuel\/application;1", apply, args, block, 
-    broadcast, call, callee, caller, check, classes, clearTimeout, console, 
-    extend, f, fuelIApplication, getService, hasOwnProperty, ignore, 
-    interfaces, jMonad, join, length, log, name, non_blocking, observe, 
-    observeOnce, prototype, push, setTimeout, shift, slice, unshift, value, 
-    wait, waitAnd
+console: false,
+exports: true
 */
 
 "use strict";
 
-// Def window.jMonad
-(function (window, undefined) {
-  var jMonad,
+// Def jMonad global.
+(function (window, undef) {
+  var $window = (typeof window === "object") ? window.jMonad : undef,
+      $exports = exports;
 
-      jMonad_log = (function () {
+  dump($window +" "+ $exports +"\n");
+
+  function jMonad() {
+  var jMonad_log = (function () {
         // Mozilla XPCOM is available.
         try {
           if (typeof Components === "object" &&
@@ -217,7 +214,7 @@ console: false
         // If this argument is a function, it is meant to be a callback.
         callbacks.push(args[i]);
       }
-      else if (typeof args[i] === "number" && timer === undefined) {
+      else if (typeof args[i] === "number" && timer === undef) {
         // If this argument is a number, it is meant to set a timer.
         // The `+` is used to convert possible strings to ints.
         timer = window.setTimeout(handler, +args[i]);
@@ -269,7 +266,7 @@ console: false
         // If this argument is a function, it is meant to be a callback.
         callbacks.push(args[i]);
       }
-      else if (typeof args[i] === "number" && timer === undefined) {
+      else if (typeof args[i] === "number" && timer === undef) {
         // If this argument is a number, it is meant to set a timer.
         // The `+` is used to convert possible strings to ints.
         timer = window.setTimeout(make_handler(args[i]), +args[i]);
@@ -283,8 +280,13 @@ console: false
     }
   }
 
+  // Observe the jMonad.warning stream internally.
+  jMonad_observe("jMonad.warning", function internal_warning_handler(message) {
+        jMonad_log("jMonad.warning: "+ message);
+      });
+
   // Construct jMonad in a closure.
-  jMonad = (function () {
+  return (function () {
 
         // Memoization of previously created thread objects.
     var mem = {},
@@ -416,8 +418,8 @@ console: false
                       make_non_blocking_method(proto[m]) :
                       make_blocking_method(proto[m]);
           }
-          else if (proto[m] !== undefined) {
-            // Anything other than a function, as long as it is not undefined,
+          else if (proto[m] !== undef) {
+            // Anything other than a function, as long as it is not undef,
             // just gets a reference pointer to it.
             thread[m] = proto[m];
           }
@@ -427,7 +429,7 @@ console: false
       return thread;
     }
 
-    // The jMonad() function itself.
+    // The monad constructor function itself.
     function self(name) {
         return mem[name] || (mem[name] = construct_thread(name));
     }
@@ -446,12 +448,22 @@ console: false
 
     return self;
   }());
+  }
 
-  // Observe the jMonad.warning stream internally.
-  jMonad_observe("jMonad.warning", function internal_warning_handler(message) {
-        jMonad_log("jMonad.warning: "+ message);
-      });
+  jMonad.noConflict = function no_clobber() {
+    if (typeof window === "object") {
+      window.jMonad = $window;
+    }
+    exports = $exports;
+    return jMonad;
+  };
 
-  window.jMonad = jMonad;
+  if (typeof window === "object") {
+    window.jMonad = jMonad;
+  }
+  exports = jMonad;
+
+  dump(typeof window.jMonad +" "+ typeof exports +"\n");
 }(window));
+dump(typeof window.jMonad +" "+ typeof exports +"\n");
 
