@@ -5,6 +5,12 @@
   <title>jMonad Test Suite</title>
   <link rel="Stylesheet" media="screen" type="text/css"
         href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" />
+  <script type="text/javascript">
+    // Set up some global free symbols before the scripts run to test the
+    // concequences of jMonad.js on the global namespace.
+    var exports = {};
+    window.jMonad = 1;
+  </script>
   <script type="text/javascript" src="../src/jMonad.js"></script>
   <script type="text/javascript" src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
   <script type="text/javascript" src="test.js"></script>

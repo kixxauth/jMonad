@@ -328,6 +328,7 @@ exports: true
         }
         else {
           continuation = stack.shift();
+          jMonad_log("done() args[0]: "+ typeof continuation.args[0]);
           continuation.f.apply(monad, continuation.args);
           if (continuation.args[0] !== done) {
             arguments.callee();
@@ -339,9 +340,11 @@ exports: true
       // push them onto this monad's stack.
       function make_blocking_method(f) {
         return function () {
-            var args = Array.prototype.slice.call(arguments).unshift(done);
+            var args = Array.prototype.slice.call(arguments);
+            args.unshift(done);
             if (!blocked && !stack.length) {
               blocked = true;
+              jMonad_log("make_blocking_method("+f.name+") args[0]: "+ typeof args[0]);
               f.apply(monad, args);
             }
             else {
@@ -357,6 +360,7 @@ exports: true
         return function () {
             var args = Array.prototype.slice.call(arguments);
             if (!blocked && !stack.length) {
+              jMonad_log("make_none_blocking_method("+f.name+") args[0]: "+ typeof args[0]);
               f.apply(monad, args);
             }
             else {
@@ -372,7 +376,7 @@ exports: true
       proto.log = jMonad_log;
 
       proto.push = function jMonad_block(f) {
-        var args = Array.prototype.slice.call(arguments, 1).unshift(done);
+        var args = Array.prototype.slice.call(arguments);
         if (!blocked && !stack.length) {
           blocked = true;
           f.apply(monad, args);
@@ -385,7 +389,8 @@ exports: true
       proto.push.non_blocking = true;
 
       proto.block = function jMonad_block(f) {
-        var args = Array.prototype.slice.call(arguments, 1).unshift(done);
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift(done);
         if (!blocked && !stack.length) {
           blocked = true;
           f.apply(monad, args);
