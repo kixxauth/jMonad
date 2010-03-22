@@ -30,6 +30,15 @@ function () {
         "Passing a different name to a constructor yields a new monad.");
     });
 
+  test(".log()", 2, function () {
+      same(M.log(), M,
+        "Static .log() is available and returns the monad constructor.");
+
+      var m = M("log test");
+      same(m.log(), m,
+        "Dynamic .log() is available and returns the monad.");
+    });
+
   test(".extend()", 12, function () {
 
       equals(typeof M.extend, "function", ".extend() is a function.");
@@ -60,14 +69,15 @@ function () {
 
     });
 
-  test(".extend()ed methods.", 13, function () {
+  test(".extend()ed methods.", 16, function () {
 
-      var arg = [1,2,3];
+      var arg = [1,2,3], m;
 
       function a (f, g, h) {
         equals(typeof f, "function", "Continuation passed.");
         equals(g, 1, "Arg 0 passed.");
         same(h, arg, "Arg 1 passed.");
+        same(this, m, "`this` points to the monad object.");
         f();
       }
 
@@ -75,6 +85,7 @@ function () {
         equals(typeof f, "undefined", "Continuation NOT passed.");
         equals(g, 1, "Arg 0 passed.");
         same(h, arg, "Arg 1 passed.");
+        same(this, m, "`this` points to the monad object.");
       }
       b.non_blocking = true;
 
@@ -98,7 +109,7 @@ function () {
       M = jM();
       M.extend(new Foo());
 
-      var m = M("extending monad");
+      m = M("extending monad");
       equals(typeof m.e, "undefined", "Not extended with prototype.e");
       equals(typeof m.f, "undefined", "Not extended with prototype.f");
       equals(typeof m.g, "undefined", "Not extended with prototype.g");

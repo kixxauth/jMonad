@@ -442,7 +442,7 @@ exports: true
     self.extend = extend_jMonad;
     self.log = function (message) {
       jMonad_log(message);
-      return this;
+      return self;
     };
     self.broadcast = jMonad_broadcast;
     self.check = jMonad_check;
