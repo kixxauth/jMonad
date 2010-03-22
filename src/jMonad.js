@@ -52,8 +52,6 @@ exports: true
   var $window = (typeof window === "object") ? window.jMonad : undef,
       $exports = exports;
 
-  dump($window +" "+ $exports +"\n");
-
   function jMonad() {
   var jMonad_log = (function () {
         // Mozilla XPCOM is available.
@@ -80,11 +78,11 @@ exports: true
         return function () {};
       }()),
 
-      signals = (function (name) {
-        jMonad_log("Building signal: "+ name);
+      signals = (function () {
         var sigs = {};
 
-        function construct_signal() {
+        function construct_signal(name) {
+          jMonad_log("Building signal: "+ name);
           var observers = {};
 
           return {
@@ -463,7 +461,5 @@ exports: true
   }
   exports = jMonad;
 
-  dump(typeof window.jMonad +" "+ typeof exports +"\n");
 }(window));
-dump(typeof window.jMonad +" "+ typeof exports +"\n");
 
