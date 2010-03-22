@@ -106,7 +106,7 @@ exports: true
 
               for (ob in observers) {
                 if (Object.prototype.hasOwnProperty.call(observers, ob)) {
-                  observers[ob].call(context, this.value);
+                  observers[ob].apply(context, this.value);
                 }
               }
             }
@@ -143,7 +143,8 @@ exports: true
           arguments[arguments.length -1]);
       jMonad_broadcast("jMonad.warning",
           "The last argument passed to .observe() by '"+
-          arguments.callee.caller.name +"()' is not a function.");
+          (arguments.callee.caller.name || "anonymous")+
+          "()' is not a function.");
       return this;
     }
 
@@ -165,12 +166,13 @@ exports: true
           arguments[arguments.length -1]);
       jMonad_broadcast("jMonad.warning",
           "The callback argument passed to .observeOnce() by '"+
-          arguments.callee.caller.name +"()' is not a function.");
+          (arguments.callee.caller.name || "anonymous")+
+          "()' is not a function.");
     }
 
-    signal.observe(function (arg) {
+    signal.observe(function () {
         signal.ignore(arguments.callee);
-        callback.call(this, arg);
+        callback.apply(this, Array.prototype.slice.call(arguments));
       });
 
     return this;
@@ -180,6 +182,7 @@ exports: true
   function jMonad_ignore(signal, callback) {
     jMonad_log(".ignore(): "+ signal);
     signals(signal).ignore(callback);
+    return this;
   }
   jMonad_ignore.non_blocking = true;
 

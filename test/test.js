@@ -24,18 +24,18 @@ function () {
 
       var m = M("monad name");
       var a = M("monad name");
-      same(m, a, "Monads built with the constructor are cached by name.");
+      ok(m === a, "Monads built with the constructor are cached by name.");
       var b = M("another monad");
       ok((m != b && a != b),
         "Passing a different name to a constructor yields a new monad.");
     });
 
   test(".log()", 2, function () {
-      same(M.log(), M,
+      ok(M.log() === M,
         "Static .log() is available and returns the monad constructor.");
 
       var m = M("log test");
-      same(m.log(), m,
+      ok(m.log() === m,
         "Dynamic .log() is available and returns the monad.");
     });
 
@@ -48,7 +48,7 @@ function () {
 
       var x = {y: function () {}, a: 1};
       var y = {z: function () {}, a: 2};
-      same(M.extend(x).extend(y), M,
+      ok(M.extend(x).extend(y) === M,
         "Static .extend() returns the monad constructor for chaining.");
       M.observeOnce("jMonad.warning", function (warning) {
           equals(warning, "Naming collision in extend() for 'a'.",
@@ -76,16 +76,16 @@ function () {
       function a (f, g, h) {
         equals(typeof f, "function", "Continuation passed.");
         equals(g, 1, "Arg 0 passed.");
-        same(h, arg, "Arg 1 passed.");
-        same(this, m, "`this` points to the monad object.");
+        ok(h === arg, "Arg 1 passed.");
+        ok(this === m, "`this` points to the monad object.");
         f();
       }
 
       function b (g, h, f) {
         equals(typeof f, "undefined", "Continuation NOT passed.");
         equals(g, 1, "Arg 0 passed.");
-        same(h, arg, "Arg 1 passed.");
-        same(this, m, "`this` points to the monad object.");
+        ok(h === arg, "Arg 1 passed.");
+        ok(this === m, "`this` points to the monad object.");
       }
       b.non_blocking = true;
 
@@ -115,6 +115,69 @@ function () {
       equals(typeof m.g, "undefined", "Not extended with prototype.g");
       equals(m.y, 0, "Extended with y");
       m.x(1, arg).z(1, arg).x(1, arg);
+
+    });
+
+  test("static signals", 14, function () {
+      // Create a new monad contructor that has not already been extended.
+      var M = jM();
+
+      equals(typeof M.check("test"), "undefined",
+        "First .check() is undefined.");
+
+      var vA = 1;
+      var vB = {};
+
+      function ob(a, b) {
+        equals(a, vA, "First arg.");
+        ok(b === vB, "Second arg.");
+        ok(this === M, "`this` points to the monad constructor function.");
+      }
+
+      function mu() {
+        ok(this === M, "`this` points to the monad constructor function.");
+      }
+
+      var m = M.observe("test", mu)
+        .observeOnce("test", ob)
+        .broadcast("test", vA, vB);
+
+      same(M.check("test"), [vA, vB], "Second .check()");
+      ok(m === M, ".broadcast() returns the monad constructor function.");
+
+      M.broadcast("test", 44)
+        .ignore("test", mu)
+        .broadcast("new", 77);
+      same(M.check("test"), [44], "Third .check()");
+      same(M.check("new"), [77], "Fourth .check()");
+
+      M.observe("test", "new",
+          (function () {
+             var called = 0;
+
+             return function (val) {
+                 called += 1;
+                 if (called === 1) {
+                   equals(val, 44, "First call is 44.");
+                 } else if (called === 2) {
+                   equals(val, 77, "Second call is 77.");
+                 } else {
+                   ok(false, "Should not be called a 3rd time.");
+                 }
+               };
+           }()));
+
+      M.observe("na", function (x) {
+            equals(typeof x, "undefined", "No data passed.");
+          })
+        .broadcast("na");
+
+      M.observeOnce("jMonad.warning", function (msg) {
+            equals(msg, "The last argument passed to .observe() by "+
+              "'anonymous()' is not a function.",
+              "Invalid params resulted in a warning.");
+          });
+      M.observe(function () {}, "message");
 
     });
 
