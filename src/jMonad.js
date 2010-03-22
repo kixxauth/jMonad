@@ -286,11 +286,11 @@ exports: true
   // Construct jMonad in a closure.
   return (function () {
 
-        // Memoization of previously created thread objects.
+        // Memoization of previously created monad objects.
     var mem = {},
 
-        // The proto object maps dynamic members to a thread object
-        // when the thread object is created.
+        // The proto object maps dynamic members to a monad object
+        // when the monad object is created.
         proto = {};
 
     // A publicly exposed function used to map dynamic extensions to jMonad.
@@ -312,9 +312,9 @@ exports: true
       return this;
     }
 
-    // Constructor for new thread objects.
-    function construct_thread(thread_name) {
-      var thread = {name: thread_name}, m,
+    // Constructor for new monad objects.
+    function construct_monad(monad_name) {
+      var monad = {name: monad_name}, m,
           stack = [], blocked = false;
 
       // This is passed to each invocation of a dynamic method as the first
@@ -328,7 +328,7 @@ exports: true
         }
         else {
           continuation = stack.shift();
-          continuation.f.apply(thread, continuation.args);
+          continuation.f.apply(monad, continuation.args);
           if (continuation.args[0] !== done) {
             arguments.callee();
           }
@@ -336,33 +336,33 @@ exports: true
       }
 
       // A wrapper helper to create dynamic blocking methods and
-      // push them onto this thread's stack.
+      // push them onto this monad's stack.
       function make_blocking_method(f) {
         return function () {
             var args = Array.prototype.slice.call(arguments).unshift(done);
             if (!blocked && !stack.length) {
               blocked = true;
-              f.apply(thread, args);
+              f.apply(monad, args);
             }
             else {
               stack.push({f: f, args: args});
             }
-            return thread;
+            return monad;
           };
       }
 
       // A wrapper helper to create dynamic non blocking methods and
-      // push them onto this thread's stack.
+      // push them onto this monad's stack.
       function make_non_blocking_method(f) {
         return function () {
             var args = Array.prototype.slice.call(arguments);
             if (!blocked && !stack.length) {
-              f.apply(thread, args);
+              f.apply(monad, args);
             }
             else {
               stack.push({f: f, args: args});
             }
-            return thread;
+            return monad;
           };
       }
 
@@ -375,12 +375,12 @@ exports: true
         var args = Array.prototype.slice.call(arguments, 1).unshift(done);
         if (!blocked && !stack.length) {
           blocked = true;
-          f.apply(thread, args);
+          f.apply(monad, args);
         }
         else {
           stack.push({f: f, args: args});
         }
-        return thread;
+        return monad;
       };
       proto.push.non_blocking = true;
 
@@ -388,12 +388,12 @@ exports: true
         var args = Array.prototype.slice.call(arguments, 1).unshift(done);
         if (!blocked && !stack.length) {
           blocked = true;
-          f.apply(thread, args);
+          f.apply(monad, args);
         }
         else {
           stack.push({f: f, args: args});
         }
-        return thread;
+        return monad;
       };
       proto.block.non_blocking = true;
 
@@ -405,14 +405,14 @@ exports: true
       proto.waitAnd = jMonad_wait_and;
       proto.ignore = jMonad_ignore;
 
-      // Extend this thread object with the dynamic methods.
+      // Extend this monad object with the dynamic methods.
       for (m in proto) {
         if (Object.prototype.hasOwnProperty.call(proto, m)) {
           jMonad_log("Appending member: "+ m);
           if (typeof proto[m] === "function") {
             jMonad_log("Dynamic member '"+ m +"' is a function.");
             // If the member is a function, we need to wrap it.
-            thread[m] = proto[m].non_blocking ?
+            monad[m] = proto[m].non_blocking ?
                       make_non_blocking_method(proto[m]) :
                       make_blocking_method(proto[m]);
           }
@@ -420,20 +420,20 @@ exports: true
             jMonad_log("Dynamic member '"+ m +"' is NOT a function.");
             // Anything other than a function, as long as it is not undef,
             // just gets a reference pointer to it.
-            thread[m] = proto[m];
+            monad[m] = proto[m];
           }
         }
       }
 
-      return thread;
+      return monad;
     }
 
     // The monad constructor function itself.
     function self(name) {
-        return mem[name] || (mem[name] = construct_thread(name));
+        return mem[name] || (mem[name] = construct_monad(name));
     }
 
-    // Extend this thread object with the static members of jMonad.
+    // Extend this monad constructor with the static members of jMonad.
     self.extend = extend_jMonad;
     self.log = function (message) {
       jMonad_log(message);
