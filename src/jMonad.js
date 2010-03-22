@@ -408,13 +408,16 @@ exports: true
       // Extend this thread object with the dynamic methods.
       for (m in proto) {
         if (Object.prototype.hasOwnProperty.call(proto, m)) {
+          jMonad_log("Appending member: "+ m);
           if (typeof proto[m] === "function") {
+            jMonad_log("Dynamic member '"+ m +"' is a function.");
             // If the member is a function, we need to wrap it.
             thread[m] = proto[m].non_blocking ?
                       make_non_blocking_method(proto[m]) :
                       make_blocking_method(proto[m]);
           }
           else if (proto[m] !== undef) {
+            jMonad_log("Dynamic member '"+ m +"' is NOT a function.");
             // Anything other than a function, as long as it is not undef,
             // just gets a reference pointer to it.
             thread[m] = proto[m];
