@@ -311,7 +311,6 @@ exports: true
 
       return this;
     }
-    extend_jMonad.non_blocking = true;
 
     // Constructor for new thread objects.
     function construct_thread(thread_name) {
@@ -371,7 +370,6 @@ exports: true
       // The `non_blocking` flag must be set to prevent a method from being
       // wrapped as a blocking method.
       proto.log = jMonad_log;
-      proto.extend = extend_jMonad;
 
       proto.push = function jMonad_block(f) {
         var args = Array.prototype.slice.call(arguments, 1).unshift(done);
