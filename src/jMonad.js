@@ -90,7 +90,7 @@ exports: true
               jMonad_log("signal.observe(): "+ name);
               observers[f] = f;
               if (this.value) {
-                f.apply(null, this.value);
+                f.call(null, this.value);
               }
             },
 
@@ -106,7 +106,7 @@ exports: true
 
               for (ob in observers) {
                 if (Object.prototype.hasOwnProperty.call(observers, ob)) {
-                  observers[ob].apply(context, this.value);
+                  observers[ob].call(context, this.value);
                 }
               }
             }
@@ -168,9 +168,9 @@ exports: true
           arguments.callee.caller.name +"()' is not a function.");
     }
 
-    signal.observe(function (/* passed args */) {
+    signal.observe(function (arg) {
         signal.ignore(arguments.callee);
-        callback.apply(this, Array.prototype.slice.call(arguments));
+        callback.call(this, arg);
       });
 
     return this;
