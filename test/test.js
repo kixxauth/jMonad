@@ -118,7 +118,7 @@ function () {
 
     });
 
-  test("static signals", 14, function () {
+  test("static signals", 13, function () {
       // Create a new monad contructor that has not already been extended.
       var M = jM();
 
@@ -173,11 +173,10 @@ function () {
         .broadcast("na");
 
       M.observeOnce("jMonad.warning", function (msg) {
-            equals(msg, "The last argument passed to .observe() by "+
-              "'anonymous()' is not a function.",
-              "Invalid params resulted in a warning.");
+            ok(false, "No warning is issued if "+
+                      "no callback function is passed to observe.");
           });
-      M.observe(function () {}, "message");
+      M.observe("signal", "message");
 
     });
 

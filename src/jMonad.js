@@ -137,20 +137,20 @@ exports: true
   function jMonad_observe() {
     jMonad_log(".observe(): "+ Array.prototype.slice.call(arguments)
             .join("\n"));
-    var callback = arguments[arguments.length -1], i = 0;
-    if (typeof callback !== "function") {
-      jMonad_log(".observe(): The last arguments was "+
-          arguments[arguments.length -1]);
-      jMonad_broadcast("jMonad.warning",
-          "The last argument passed to .observe() by '"+
-          (arguments.callee.caller.name || "anonymous")+
-          "()' is not a function.");
-      return this;
-    }
+    var callbacks = [], sigs = [], i = 0, n = 0;
 
     for(; i < arguments.length; i += 1) {
-      if (arguments[i] !== callback) {
-        signals(arguments[i]).observe(callback);
+      if (typeof arguments[i] === "function") {
+        callbacks.push(arguments[i]);
+      }
+      else {
+        sigs.push(arguments[i]);
+      }
+    }
+
+    for (i = 0; i < callbacks.length; i += 1) {
+      for (; n < sigs.length; n += 1) {
+        signals(sigs[n]).observe(callbacks[i]);
       }
     }
 
