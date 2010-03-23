@@ -181,4 +181,30 @@ function () {
 
     });
 
+  test("wait", 4, function () {
+      stop();
+      M = jM();
+      var mark = new Date().getTime();
+      M(1)
+        .wait("one", 300, function () {
+            // We never fire the "one" event.
+            var end = new Date().getTime();
+            var diff = end - mark;
+            ok(270 < diff && diff < 310, "Wait elapsed "+ (end - mark));
+
+            ok(this === M(1), "`this' is bound to the current monad.");
+
+            // Even though we broadcast "one" here, wait will ignore it.
+            M.broadcast("one", 1);
+          })
+        .push(function () {
+            var end = new Date().getTime();
+            var diff = end - mark;
+            ok(270 < diff && diff < 310, "Wait elapsed "+ (end - mark));
+            ok(this === M(1), "`this' is bound to the current monad.");
+            start();
+          });
+      stop();
+    });
+
 }, false);

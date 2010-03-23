@@ -187,24 +187,29 @@ exports: true
   jMonad_ignore.non_blocking = true;
 
   function jMonad_wait(continuation /* signal names and callbacks */) {
-    jMonad_log(".wait(): "+ Array.prototype.slice.call(arguments, 1)
+    jMonad_log(".wait(): args:\n"+ Array.prototype.slice.call(arguments, 1)
             .join("\n"));
     var callbacks = [], i = 0,
         observers = [],
         timer,
-        args = Array.prototype.slice.call(arguments, 1);
+        args = Array.prototype.slice.call(arguments, 1),
+        monad = this;
 
     function handler() {
       var i = 0;
-
+      jMonad_log(".wait() timer: "+ timer);
       // Remove all listeners.
-      window.clearTimeout(timer);
+      if (typeof timer === "number") {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+
       for (; i < observers.length; i += 1) {
-        jMonad_ignore(observers[i], handler);
+        signals(observers[i]).ignore(handler);
       }
 
       for (i = 0; i < callbacks.length; i += 1) {
-        callbacks[i]();
+        callbacks[i].call(monad);
       }
       // The continuation is invoked AFTER all of the callbacks.
       continuation();
@@ -224,13 +229,13 @@ exports: true
         // If this argument is anything but a function or a number,
         // it is meant to be a signal identifier.
         observers.push(args[i]);
-        jMonad_observe_once(args[i], handler);
+        signals(args[i]).observe(handler);
       }
     }
   }
 
   function jMonad_wait_and(continuation /* signal names and callbacks */) {
-    jMonad_log(".waitAnd(): "+ Array.prototype.slice.call(arguments, 1)
+    jMonad_log(".waitAnd(): args:\n"+ Array.prototype.slice.call(arguments, 1)
             .join("\n"));
     var observed = {}, i,
         callbacks = [],
@@ -243,10 +248,12 @@ exports: true
 
           // Convert arguments to an array and set this observer.
           observed[signal] = true;
+          jMonad_log("waitAnd(): Got signal "+ signal);
 
           // Check to see if all the registered observers have been set.
           for (s in observed) {
             if (!observed[s]) {
+              jMonad_log("waitAnd(): missing "+ s);
               ok = false;
               break;
             }
@@ -406,7 +413,6 @@ exports: true
       proto.block.non_blocking = true;
 
       proto.broadcast = jMonad_broadcast;
-      proto.check = jMonad_check;
       proto.observe = jMonad_observe;
       proto.observeOnce = jMonad_observe_once;
       proto.wait = jMonad_wait;
