@@ -1,22 +1,5 @@
-jMonad
-======
-
-Monadic JavaScript
-------------------
-
-Wrestling with events, the stack, state, and the user all at once has proven
-too much to keep in my head all at one time. Functional programming has
-[monads][1].  [Haskell][2] programmers in particular rave about them. Inspired
-by a [blog post by Patrick Thomson][3] I decided that JavaScript programmers
-could use monads too. So far it is frickin awesome.
-
-Also, check [this out][4]. It is a good real world analogy of why monads can
-make complex programs easier to build in any language.
-
-My name is Kris Walker. Contact me with questions.
-
 Licensed under The MIT License
-------------------------------
+==============================
 
 Copyright (c) 2009 - 2010 Fireworks Technology Projects Inc.
 [www.fireworksproject.com](http://www.fireworksproject.com)
@@ -38,9 +21,4 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
- [1]: http://en.wikipedia.org/wiki/Monad_%28functional_programming%29
- [2]: http://www.haskell.org/haskellwiki/Monad_tutorials_timeline
- [3]: http://importantshock.wordpress.com/2009/01/18/jquery-is-a-monad/
- [4]: http://www.haskell.org/all_about_monads/html/analogy.html
 

@@ -38,9 +38,18 @@ immed: true,
 maxlen: 80
 */
 
+/*members "@mozilla.org\/fuel\/application;1", apply, args, block, 
+    broadcast, call, callee, caller, check, classes, clearTimeout, console, 
+    extend, f, fuelIApplication, getService, hasOwnProperty, ignore, 
+    interfaces, jMonad, length, log, name, noConflict, non_blocking, 
+    observe, observeOnce, prototype, push, setTimeout, shift, slice, 
+    unshift, value, wait, waitAnd
+*/
+
 /*global
 window: true,
 Components: false,
+dump: false,
 console: false,
 exports: true
 */
@@ -82,12 +91,10 @@ exports: true
         var sigs = {};
 
         function construct_signal(name) {
-          jMonad_log("Building signal: "+ name);
           var observers = {};
 
           return {
             observe: function signal_observe(f) {
-              jMonad_log("signal.observe(): "+ name);
               observers[f] = f;
               if (this.value) {
                 f.call(null, this.value);
@@ -95,12 +102,10 @@ exports: true
             },
 
             ignore: function signal_ignore(f) {
-              jMonad_log("signal.ignore(): "+ name);
               delete observers[f];
             },
 
             broadcast: function signal_broadcast(context, data) {
-              jMonad_log("signal.broadcast(): "+ name);
               var ob;
               this.value = data;
 
@@ -114,7 +119,6 @@ exports: true
         }
 
         return function (name) {
-            jMonad_log("jMonad_signals() fetch: "+ name);
             return sigs[name] || (sigs[name] = construct_signal(name));
           };
       }());
@@ -122,21 +126,17 @@ exports: true
   jMonad_log.non_blocking = true;
 
   function jMonad_broadcast(signal) {
-    jMonad_log(".broadcast(): "+ signal);
     signals(signal).broadcast(this, Array.prototype.slice.call(arguments, 1));
     return this;
   }
   jMonad_broadcast.non_blocking = true;
 
   function jMonad_check(signal) {
-    jMonad_log(".check(): "+ signal);
     return signals(signal).value;
   }
   jMonad_check.non_blocking = true;
 
   function jMonad_observe() {
-    jMonad_log(".observe(): "+ Array.prototype.slice.call(arguments)
-            .join("\n"));
     var callbacks = [], sigs = [], i = 0, n = 0;
 
     for(; i < arguments.length; i += 1) {
@@ -159,11 +159,8 @@ exports: true
   jMonad_observe.non_blocking = true;
 
   function jMonad_observe_once(signal, callback) {
-    jMonad_log(".observeOnce(): "+ signal);
     signal = signals(signal);
     if (typeof callback !== "function") {
-      jMonad_log(".observeOnce(): The callback arguments was "+
-          arguments[arguments.length -1]);
       jMonad_broadcast("jMonad.warning",
           "The callback argument passed to .observeOnce() by '"+
           (arguments.callee.caller.name || "anonymous")+
@@ -180,15 +177,12 @@ exports: true
   jMonad_observe_once.non_blocking = true;
 
   function jMonad_ignore(signal, callback) {
-    jMonad_log(".ignore(): "+ signal);
     signals(signal).ignore(callback);
     return this;
   }
   jMonad_ignore.non_blocking = true;
 
   function jMonad_wait(continuation /* signal names and callbacks */) {
-    jMonad_log(".wait(): args:\n"+ Array.prototype.slice.call(arguments, 1)
-            .join("\n"));
     var callbacks = [], i = 0,
         observers = [],
         timer,
@@ -197,7 +191,6 @@ exports: true
 
     function handler() {
       var i = 0;
-      jMonad_log(".wait() timer: "+ timer);
       // Remove all listeners.
       if (typeof timer === "number") {
         window.clearTimeout(timer);
@@ -235,8 +228,6 @@ exports: true
   }
 
   function jMonad_wait_and(continuation /* signal names and callbacks */) {
-    jMonad_log(".waitAnd(): args:\n"+ Array.prototype.slice.call(arguments, 1)
-            .join("\n"));
     var observed = {}, observers = [], i = 0,
         callbacks = [],
         timer, timeout,
@@ -247,7 +238,6 @@ exports: true
       return function (/* signal data */) {
           var ok = true, s, i = 0;
 
-          jMonad_log("waitAnd(): Got signal "+ signal);
           observed[signal] = true;
           if (signal !== timeout) {
             signals(signal).ignore(arguments.callee);
@@ -255,12 +245,8 @@ exports: true
 
           // Check to see if all the registered observers have been set.
           for (s in observed) {
-            jMonad_log("waitAnd(): checking "+ s);
-            jMonad_log(observed[s]);
-            jMonad_log(observed[signal]);
             if (Object.prototype.hasOwnProperty.call(observed, s) &&
                 !observed[s]) {
-              jMonad_log("waitAnd(): missing "+ s);
               ok = false;
               break;
             }
@@ -284,7 +270,6 @@ exports: true
       else if (typeof args[i] === "number" && timer === undef) {
         // If this argument is a number, it is meant to set a timer.
         // The `+` is used to convert possible strings to ints.
-        jMonad_log(".waitAnd() make timer:"+ args[i]);
         observed[args[i]] = false;
         timeout = args[i];
         timer = window.setTimeout(make_handler(args[i]), +args[i]);
@@ -293,7 +278,6 @@ exports: true
         // If this argument is anything but a function or a number,
         // it is meant to be a signal identifier.
         observers.push([args[i], make_handler(args[i])]);
-        jMonad_log(".waitAnd() observe signal:"+ args[i]);
         observed[args[i]] = false;
       }
     }
@@ -304,7 +288,6 @@ exports: true
 
   // Observe the jMonad.warning stream internally.
   jMonad_observe("jMonad.warning", function internal_warning_handler(message) {
-        jMonad_log("jMonad.warning: "+ message);
       });
 
   // Construct jMonad in a closure.
@@ -352,7 +335,6 @@ exports: true
         }
         else {
           continuation = stack.shift();
-          jMonad_log("done() args[0]: "+ typeof continuation.args[0]);
           continuation.f.apply(monad, continuation.args);
           if (continuation.args[0] !== done) {
             arguments.callee();
@@ -361,14 +343,11 @@ exports: true
       }
 
       function push_stack(f, args, blocking) {
-        jMonad_log("stacking method "+ f.name);
         if (!blocked && !stack.length) {
           blocked = !!blocking;
-          jMonad_log("applying method "+ f.name);
           f.apply(monad, args);
         }
         else {
-          jMonad_log("pushing method "+ f.name);
           stack.push({f: f, args: args});
         }
       }
@@ -377,7 +356,6 @@ exports: true
       // push them onto this monad's stack.
       function make_blocking_method(f) {
         return function () {
-            jMonad_log("calling blocking method "+ f.name);
             var args = Array.prototype.slice.call(arguments);
             args.unshift(done);
             push_stack(f, args, true);
@@ -389,7 +367,6 @@ exports: true
       // push them onto this monad's stack.
       function make_non_blocking_method(f) {
         return function () {
-            jMonad_log("calling non-blocking method "+ f.name);
             push_stack(f,
                 Array.prototype.slice.call(arguments));
             return monad;
@@ -410,16 +387,13 @@ exports: true
       // Extend this monad object with the dynamic methods.
       for (m in proto) {
         if (Object.prototype.hasOwnProperty.call(proto, m)) {
-          jMonad_log("Appending member: "+ m);
           if (typeof proto[m] === "function") {
-            jMonad_log("Dynamic member '"+ m +"' is a function.");
             // If the member is a function, we need to wrap it.
             monad[m] = proto[m].non_blocking ?
                       make_non_blocking_method(proto[m]) :
                       make_blocking_method(proto[m]);
           }
           else if (proto[m] !== undef) {
-            jMonad_log("Dynamic member '"+ m +"' is NOT a function.");
             // Anything other than a function, as long as it is not undef,
             // just gets a reference pointer to it.
             monad[m] = proto[m];
