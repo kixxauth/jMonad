@@ -310,7 +310,7 @@ exports: true
   // Construct jMonad in a closure.
   return (function () {
 
-        // Memoization of previously created monad objects.
+    // Memoization of previously created monad objects.
     var mem = {},
 
         // The proto object maps dynamic members to a monad object
@@ -360,20 +360,27 @@ exports: true
         }
       }
 
+      function push_stack(f, args, blocking) {
+        jMonad_log("stacking method "+ f.name);
+        if (!blocked && !stack.length) {
+          blocked = !!blocking;
+          jMonad_log("applying method "+ f.name);
+          f.apply(monad, args);
+        }
+        else {
+          jMonad_log("pushing method "+ f.name);
+          stack.push({f: f, args: args});
+        }
+      }
+
       // A wrapper helper to create dynamic blocking methods and
       // push them onto this monad's stack.
       function make_blocking_method(f) {
         return function () {
+            jMonad_log("calling blocking method "+ f.name);
             var args = Array.prototype.slice.call(arguments);
             args.unshift(done);
-            if (!blocked && !stack.length) {
-              blocked = true;
-              jMonad_log("make_blocking_method("+f.name+") args[0]: "+ typeof args[0]);
-              f.apply(monad, args);
-            }
-            else {
-              stack.push({f: f, args: args});
-            }
+            push_stack(f, args, true);
             return monad;
           };
       }
@@ -382,14 +389,9 @@ exports: true
       // push them onto this monad's stack.
       function make_non_blocking_method(f) {
         return function () {
-            var args = Array.prototype.slice.call(arguments);
-            if (!blocked && !stack.length) {
-              jMonad_log("make_none_blocking_method("+f.name+") args[0]: "+ typeof args[0]);
-              f.apply(monad, args);
-            }
-            else {
-              stack.push({f: f, args: args});
-            }
+            jMonad_log("calling non-blocking method "+ f.name);
+            push_stack(f,
+                Array.prototype.slice.call(arguments));
             return monad;
           };
       }
@@ -399,29 +401,28 @@ exports: true
       // wrapped as a blocking method.
       proto.log = jMonad_log;
 
-      proto.push = function jMonad_block(f) {
-        var args = Array.prototype.slice.call(arguments);
-        if (!blocked && !stack.length) {
-          blocked = true;
-          f.apply(monad, args);
+      proto.push = function jMonad_push(f) {
+        if (typeof f !== "function") {
+          jMonad_broadcast("jMonad.warning",
+              "A non-function was passed as the first parameter to .push()");
+          return monad;
         }
-        else {
-          stack.push({f: f, args: args});
-        }
+        push_stack(f,
+            Array.prototype.slice.call(arguments, 1));
         return monad;
       };
       proto.push.non_blocking = true;
 
       proto.block = function jMonad_block(f) {
-        var args = Array.prototype.slice.call(arguments);
+        if (typeof f !== "function") {
+          jMonad_broadcast("jMonad.warning",
+              "A non-function was passed as the first parameter to .block()");
+          return monad;
+        }
+        var args = Array.prototype.slice.call(arguments, 1);
         args.unshift(done);
-        if (!blocked && !stack.length) {
-          blocked = true;
-          f.apply(monad, args);
-        }
-        else {
-          stack.push({f: f, args: args});
-        }
+        dump("\n **** ARGS:\n"+ args.join("\n") +"\n");
+        push_stack(f, args, true);
         return monad;
       };
       proto.block.non_blocking = true;
