@@ -275,4 +275,76 @@ function () {
           });
     });
 
+  test("chain", 18, function () {
+      stop();
+      M = jM();
+
+      var mark = new Date().getTime();
+      var count = 1;
+
+      setTimeout(function () {
+          M.broadcast("wait-over");
+        }, 200);
+
+      function observer(n) {
+        ok(true, "main fired "+ n +" times.");
+      }
+
+      var m = M("chain")
+        .observe("main", observer)
+        .broadcast("main", count)
+        .block(function (done) {
+            M.log(" - > blocker");
+            equals(count, 1, "count is 1.");
+            setTimeout(function () {
+                equals(count, 1, "count is 1.");
+                count += 1;
+                M.broadcast("main", count);
+                done();
+              }, 0);
+          })
+        .push(function () {
+            M.log(" - > push");
+            equals(count, 2, "push() count is 2.");
+            count += 1;
+            M.broadcast("main", count);
+          })
+        .observeOnce("main", function (n) {
+            M.log(" - > observe");
+            equals(count, 3, "observeOnce() count is 3.");
+          })
+        .wait("wait-over", 300, function() {
+            equals(count, 3, "wait() count is 3.");
+            count += 1;
+            M.broadcast("main", count);
+            var now = new Date().getTime();
+            var x = now - mark;
+            ok((190 < x < 210), "wait()");
+          })
+        .push(function () {
+            equals(count, 4, "push() count is 4");
+          })
+        .waitAnd(300, "wait-over", function () {
+            equals(count, 4, "count is 4.");
+            count += 1;
+            M.broadcast("main", count);
+            var now = new Date().getTime();
+            var x = now - mark;
+            ok((490 < x < 510), "waitAnd()");
+          })
+        .push(function () {
+            equals(count, 5, "push() count is 5");
+          })
+        .ignore("main", observer)
+        .observe("main", function (n) {
+            equals(n, 5, "last count is 5");
+          })
+        .broadcast("main", 5) // count is still at 1 at this point
+        .push(function () {
+            M.log(" - > last");
+            ok(this === m, "`this` still maps to m");
+            start();
+          });
+    });
+
 }, false);

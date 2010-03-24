@@ -400,33 +400,6 @@ exports: true
       // The `non_blocking` flag must be set to prevent a method from being
       // wrapped as a blocking method.
       proto.log = jMonad_log;
-
-      proto.push = function jMonad_push(f) {
-        if (typeof f !== "function") {
-          jMonad_broadcast("jMonad.warning",
-              "A non-function was passed as the first parameter to .push()");
-          return monad;
-        }
-        push_stack(f,
-            Array.prototype.slice.call(arguments, 1));
-        return monad;
-      };
-      proto.push.non_blocking = true;
-
-      proto.block = function jMonad_block(f) {
-        if (typeof f !== "function") {
-          jMonad_broadcast("jMonad.warning",
-              "A non-function was passed as the first parameter to .block()");
-          return monad;
-        }
-        var args = Array.prototype.slice.call(arguments, 1);
-        args.unshift(done);
-        dump("\n **** ARGS:\n"+ args.join("\n") +"\n");
-        push_stack(f, args, true);
-        return monad;
-      };
-      proto.block.non_blocking = true;
-
       proto.broadcast = jMonad_broadcast;
       proto.observe = jMonad_observe;
       proto.observeOnce = jMonad_observe_once;
@@ -453,6 +426,29 @@ exports: true
           }
         }
       }
+
+      monad.push = function jMonad_push(f) {
+        if (typeof f !== "function") {
+          jMonad_broadcast("jMonad.warning",
+              "A non-function was passed as the first parameter to .push()");
+          return monad;
+        }
+        push_stack(f,
+            Array.prototype.slice.call(arguments, 1));
+        return this;
+      };
+
+      monad.block = function jMonad_block(f) {
+        if (typeof f !== "function") {
+          jMonad_broadcast("jMonad.warning",
+              "A non-function was passed as the first parameter to .block()");
+          return monad;
+        }
+        var args = Array.prototype.slice.call(arguments, 1);
+        args.unshift(done);
+        push_stack(f, args, true);
+        return this;
+      };
 
       return monad;
     }
