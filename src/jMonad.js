@@ -237,22 +237,29 @@ exports: true
   function jMonad_wait_and(continuation /* signal names and callbacks */) {
     jMonad_log(".waitAnd(): args:\n"+ Array.prototype.slice.call(arguments, 1)
             .join("\n"));
-    var observed = {}, i,
+    var observed = {}, observers = [], i = 0,
         callbacks = [],
-        timer,
-        args = Array.prototype.slice.call(arguments, 1);
+        timer, timeout,
+        args = Array.prototype.slice.call(arguments, 1),
+        that = this;
 
     function make_handler(signal) {
       return function (/* signal data */) {
-          var ok = true, s, i;
+          var ok = true, s, i = 0;
 
-          // Convert arguments to an array and set this observer.
-          observed[signal] = true;
           jMonad_log("waitAnd(): Got signal "+ signal);
+          observed[signal] = true;
+          if (signal !== timeout) {
+            signals(signal).ignore(arguments.callee);
+          }
 
           // Check to see if all the registered observers have been set.
           for (s in observed) {
-            if (!observed[s]) {
+            jMonad_log("waitAnd(): checking "+ s);
+            jMonad_log(observed[s]);
+            jMonad_log(observed[signal]);
+            if (Object.prototype.hasOwnProperty.call(observed, s) &&
+                !observed[s]) {
               jMonad_log("waitAnd(): missing "+ s);
               ok = false;
               break;
@@ -260,8 +267,8 @@ exports: true
           }
 
           if (ok) {
-            for(i = 0; i < callbacks.length; i += 1) {
-              callbacks[i]();
+            for(; i < callbacks.length; i += 1) {
+              callbacks[i].call(that);
             }
             // The continuation is invoked AFTER all of the callbacks.
             continuation();
@@ -269,7 +276,7 @@ exports: true
         };
     }
 
-    for (i = 0; i < args.length; i += 1) {
+    for (; i < args.length; i += 1) {
       if (typeof args[i] === "function") {
         // If this argument is a function, it is meant to be a callback.
         callbacks.push(args[i]);
@@ -277,14 +284,21 @@ exports: true
       else if (typeof args[i] === "number" && timer === undef) {
         // If this argument is a number, it is meant to set a timer.
         // The `+` is used to convert possible strings to ints.
+        jMonad_log(".waitAnd() make timer:"+ args[i]);
+        observed[args[i]] = false;
+        timeout = args[i];
         timer = window.setTimeout(make_handler(args[i]), +args[i]);
       }
       else {
         // If this argument is anything but a function or a number,
         // it is meant to be a signal identifier.
+        observers.push([args[i], make_handler(args[i])]);
+        jMonad_log(".waitAnd() observe signal:"+ args[i]);
         observed[args[i]] = false;
-        jMonad_observe_once(args[i], make_handler(args[i]));
       }
+    }
+    for (i = 0; i < observers.length; i += 1) {
+      signals(observers[i][0]).observe(observers[i][1]);
     }
   }
 
