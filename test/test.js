@@ -71,6 +71,8 @@ function () {
 
   test(".extend()ed methods.", 16, function () {
 
+      dump(" \n  ### extend tests ###\n\n");
+
       var arg = [1,2,3], m;
 
       function a (f, g, h) {
@@ -116,9 +118,11 @@ function () {
       equals(m.y, 0, "Extended with y");
       m.x(1, arg).z(1, arg).x(1, arg);
 
+      dump(" \n  >>> END extend tests <<<\n\n");
+
     });
 
-  test("static signals", 13, function () {
+  test("static signals", 14, function () {
       // Create a new monad contructor that has not already been extended.
       var M = jM();
 
@@ -178,9 +182,46 @@ function () {
           });
       M.observe("signal", "message");
 
+      M.observe("undef", function (u) {
+            equals(typeof u, "undefined", "no value for undef");
+          })
+        .broadcast("undef");
+
     });
 
-  test("wait", 4, function () {
+  test(".push() and .block()", 7, function () {
+      M = jM();
+
+      M("push")
+        .push()
+        .push(function (a) { equals(a, 1, "pushed function called"); }, 1)
+        .push(function (a) { equals(a, 2, "second function called"); }, 2);
+
+      M.observeOnce("jMonad.warning", function (message) {
+          equals(message, "A non-function was passed as "+
+                          "the first parameter to .push()");
+        });
+
+      M.observe("home", function (a) {
+          equals(a, 1, "'home' must not be broadcast more than once.")
+        });
+      M("block")
+        .block()
+        .block(function (cc, a) {
+          cc();
+          equals(a, 1, "first block function called");
+         }, 1)
+        .broadcast("home", 1)
+        .block(function (cc, a) { equals(a, 2, "second block function called"); }, 2)
+        .broadcast("home", 2);
+
+      M.observeOnce("jMonad.warning", function (message) {
+          equals(message, "A non-function was passed as "+
+                          "the first parameter to .block()");
+        });
+    });
+
+  test(".wait()", 4, function () {
       stop();
       M = jM();
       var mark = new Date().getTime();
@@ -203,7 +244,35 @@ function () {
             ok(this === M(1), "`this' is bound to the current monad.");
             start();
           });
+    });
+
+  test("waitAnd()", 6, function () {
       stop();
+      M = jM();
+      var mark = new Date().getTime();
+
+      M.broadcast("one", 1);
+      M(1)
+        .observe("one", function (v) {
+            equals(v, 1, "Signal was broadcast.");
+          })
+        .waitAnd("one", 300, function () {
+            var end = new Date().getTime();
+            var diff = end - mark;
+            ok(270 < diff && diff < 310, "Wait elapsed "+ (end - mark));
+
+            ok(this === M(1), ".waitAnd() `this' is bound to the current monad.");
+
+            // Even though we broadcast "one" here, wait will ignore it.
+            M.broadcast("one", 1);
+          })
+        .push(function () {
+            var end = new Date().getTime();
+            var diff = end - mark;
+            ok(270 < diff && diff < 310, "Wait elapsed "+ (end - mark));
+            ok(this === M(1), ".push() `this' is bound to the current monad.");
+            start();
+          });
     });
 
 }, false);
