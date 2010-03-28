@@ -38,14 +38,6 @@ immed: true,
 maxlen: 80
 */
 
-/*members "@mozilla.org\/fuel\/application;1", apply, args, block, 
-    broadcast, call, callee, caller, check, classes, clearTimeout, console, 
-    extend, f, fuelIApplication, getService, hasOwnProperty, ignore, 
-    interfaces, jMonad, length, log, name, noConflict, non_blocking, 
-    observe, observeOnce, prototype, push, setTimeout, shift, slice, 
-    unshift, value, wait, waitAnd
-*/
-
 /*global
 window: true,
 Components: false,
@@ -57,9 +49,7 @@ exports: true
 "use strict";
 
 // Def jMonad global.
-(function (window, undef) {
-  var $window = (typeof window === "object") ? window.jMonad : undef,
-      $exports = exports;
+(function (MODULE, undef) {
 
   function jMonad() {
   var jMonad_log = (function () {
@@ -446,7 +436,7 @@ exports: true
 
     return self;
   }());
-  }
+  } // End of jMonad function def
 
   jMonad.noConflict = function no_clobber() {
     if (typeof window === "object") {
@@ -456,10 +446,7 @@ exports: true
     return jMonad;
   };
 
-  if (typeof window === "object") {
-    window.jMonad = jMonad;
-  }
-  exports = jMonad;
+  MODULE.jMonad = jMonad;
 
-}(window));
+}(this));
 
