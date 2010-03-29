@@ -7,14 +7,28 @@
         href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" />
   <script type="text/javascript">
 
+// Cross platform event listener.
+function addEvent(elem, name, cb) {
+  if (typeof elem.addEventListener === "function") {
+    elem.addEventListener(name, cb, false);
+  }
+  else if (typeof elem.attachEvent === "function") {
+    elem.attachEvent("on" +type, cb);
+  }
+  else {
+    throw new Error("No event listener method available on DOM.");
+  }
+}
+
 window.addEventListener("load",
 function (load_event, undef) {
 
-  // A shortcut to the jMonad initializer.
-  var jM;
+  // A shortcut to the jMonad initializer, and the returned monad constructor function.
+  var jM, M;
 
-  // When used as a Mozilla JavaScript module instead of using a `<script>` tag,
-  // jMonad does not add any symbols to the global name space.
+  // We have not included jMonad.js with a script tag or
+  // Components.utils.import(), so there should not be a jMonad free variable
+  // floating around anywhere.
   test("Global `jMonad` does not exist.", 3, function () {
       
       // jMonad is not attached to the window object
@@ -32,104 +46,150 @@ function (load_event, undef) {
 
     });
 
-  /**
-   * This documentation is copied from: 
-   * http://mxr.mozilla.org/mozilla-central/source/js/src/xpconnect/idl/xpccomponents.idl
-   * ------------------------------------------------------------------------------------
-   *
-   * import is designed to be called from JavaScript only.
-   *
-   * Synchronously loads and evaluates the js file located at
-   * 'registryLocation' with a new, fully privileged global object.
-   *
-   * If 'targetObj' is specified and equal to null, returns the
-   * module's global object. Otherwise (if 'targetObj' is not
-   * specified, or 'targetObj' is != null) looks for a property
-   * 'EXPORTED_SYMBOLS' on the new global object. 'EXPORTED_SYMBOLS'
-   * is expected to be an array of strings identifying properties on
-   * the global object.  These properties will be installed as
-   * properties on 'targetObj', or, if 'targetObj' is not specified,
-   * on the caller's global object. If 'EXPORTED_SYMBOLS' is not
-   * found, an error is thrown.
-   *
-   * @param resourceURI A resource:// URI string to load the module from.
-   * @param targetObj  the object to install the exported properties on.
-   *        If this parameter is a primitive value, this method throws
-   *        an exception.
-   * @returns the module code's global object.
-   *
-   * The implementation maintains a hash of registryLocation->global obj.
-   * Subsequent invocations of importModule with 'registryLocation'
-   * pointing to the same file will not cause the module to be re-evaluated,
-   * but the symbols in EXPORTED_SYMBOLS will be exported into the
-   * specified target object and the global object returned as above.
-   *
-   * (This comment is duplicated from xpcIJSModuleLoader.)
-   */
-  test("Import jMonad.", 3, function () {
-      var module, p, count = 0;
+  // If we are loaded in an envirement without Mozilla chrome privileges,
+  // (which would be most of them) we do not want to run the Mozilla JSM
+  // complience tests.
+  try {
 
-      // The jMonad module is designed to be imported into the Mozilla module
-      // system by passing null as the second argument to import(). Since the
-      // jMonad module does not contain an EXPORTED_SYMBOLS array, it will
-      // raise an exception if it is not imported this way.
-      try {
-        module = Components.utils.import("resource://chrometest/resources/jMonad.js");
-      } catch (e) {
-        // 
-        equals(e.toString(),
-          "Error: resource://chrometest/resources/jMonad.js - EXPORTED_SYMBOLS is not an array.",
-          "An exception is raised.");
-      }
+    // Attempting to accecc XPCComponents will raise an error,
+    // resulting in skipping the tests in this try block.
+    Components.utils;
 
-      // The correct way to import.
-      module = Components.utils.import("resource://chrometest/resources/jMonad.js", null);
+    /**
+     * This documentation is copied from: 
+     * http://mxr.mozilla.org/mozilla-central/source/js/src/xpconnect/idl/xpccomponents.idl
+     * ------------------------------------------------------------------------------------
+     *
+     * import is designed to be called from JavaScript only.
+     *
+     * Synchronously loads and evaluates the js file located at
+     * 'registryLocation' with a new, fully privileged global object.
+     *
+     * If 'targetObj' is specified and equal to null, returns the
+     * module's global object. Otherwise (if 'targetObj' is not
+     * specified, or 'targetObj' is != null) looks for a property
+     * 'EXPORTED_SYMBOLS' on the new global object. 'EXPORTED_SYMBOLS'
+     * is expected to be an array of strings identifying properties on
+     * the global object.  These properties will be installed as
+     * properties on 'targetObj', or, if 'targetObj' is not specified,
+     * on the caller's global object. If 'EXPORTED_SYMBOLS' is not
+     * found, an error is thrown.
+     *
+     * @param resourceURI A resource:// URI string to load the module from.
+     * @param targetObj  the object to install the exported properties on.
+     *        If this parameter is a primitive value, this method throws
+     *        an exception.
+     * @returns the module code's global object.
+     *
+     * The implementation maintains a hash of registryLocation->global obj.
+     * Subsequent invocations of importModule with 'registryLocation'
+     * pointing to the same file will not cause the module to be re-evaluated,
+     * but the symbols in EXPORTED_SYMBOLS will be exported into the
+     * specified target object and the global object returned as above.
+     *
+     * (This comment is duplicated from xpcIJSModuleLoader.)
+     */
+    test("Import jMonad.", 3, function () {
+        var module, p, count = 0;
 
-      // The module object should have two properties,
-      // the QueryInterface function and the initializer function for jMonad itself.
-      for (p in module) {
-        count += 1;
-      }
-      equals(count, 2, "The imported module has two properties.");
+        // The jMonad module is designed to be imported into the Mozilla module
+        // system by passing null as the second argument to import(). Since the
+        // jMonad module does not contain an EXPORTED_SYMBOLS array, it will
+        // raise an exception if it is not imported this way.
+        try {
+          module = Components.utils.import("resource://chrometest/resources/jMonad.js");
+        } catch (e) {
+          // 
+          equals(e.toString(),
+            "Error: resource://chrometest/resources/jMonad.js - EXPORTED_SYMBOLS is not an array.",
+            "An exception is raised.");
+        }
 
-      // The jMonad initializer is function.
-      equals(typeof module.jMonad, "function",
-          "The imported module has the jMonad initializer function.");
+        // The correct way to import.
+        module = Components.utils.import("resource://chrometest/resources/jMonad.js", null);
 
-      // Make a shortcut for testing.
-      jM = module.jMonad;
+        // The module object should have two properties,
+        // the QueryInterface function and the initializer function for jMonad itself.
+        for (p in module) {
+          count += 1;
+        }
+        equals(count, 2, "The imported module has two properties.");
+
+        // The jMonad initializer is function.
+        equals(typeof module.jMonad, "function",
+            "The imported module has the jMonad initializer function.");
+
+        // Make a shortcut for testing.
+        jM = module.jMonad;
+
+      });
+
+  } catch (e) {
+
+    // If Components.utils throws an error, we are not testing jMonad.js as a
+    // Mozilla JSM. We'll move ahead by loading the script tag dynamically for
+    // the normal browser tests.
+    test("Dynamically add the jMonad &lt;script&gt; tag.", 4, function () {
+
+        var timeout;
+
+        // Set the global jMonad symbol so we can test it later with jMonad.noConflict();
+        jMonad = 1;
+
+        // We are going to dynamically set the src attribute on a script tag to
+        // load the jMonad.js script. To test the script correcty, we need to
+        // place the tests inside a load event handler placed on the script tag.
+        addEvent(document.getElementById("dynoscript"), "load",
+          function () {
+
+            equals(typeof jMonad, "function", "jMonad() is now in the global scope.");
+            ok(window.jMonad === jMonad, "We also have window.jMonad().");
+
+            // Set the global we created at the top with .noConflict() and return
+            // window.jMonad back to 1.
+            jM = jMonad.noConflict();
+            equals(typeof jM, "function", "jMonad is now jM in the global scope.");
+            equals(jMonad, 1, "window.jMonad is back to what it was before.");
+
+            // Start the testrunner again.
+            start();
+
+          });
+        document.getElementById("dynoscript").src = "../src/jMonad.js";
+
+        // Block the test runner while we wait for the script to be loaded.
+        stop();
+
+      });
+  }
+
+  // The jMonad application is built with a call to the jMonad initializer function.
+  test("jMonad() initializer", 3, function () {
+
+      // Assign the global we set up at the top of this test module by calling
+      // the jMonad initializer.
+      M = jM();
+
+      // M is now the monad constructor function.
+      equals(typeof M, "function", "M() has been built.");
+
+      // Contruct two monads, ma, and mb.
+      var ma = M("monad name");
+      var mb = M("monad name");
+
+      // Since they were both created with the same name, jMonad simply loaded
+      // ma into mb instead of re-creating it.
+      ok(mb === ma, "Monads built with the constructor are cached by name.");
+
+      // However, we can still construct a new monad by passing a different
+      // name to the constructor.
+      var mc = M("another monad");
+      ok((mb != mc && ma != mc),
+        "Passing a different name to a constructor yields a new monad.");
 
     });
 
   /*
-  var jM, M;
-
-  test("jMonad is a free symbol", 3, function () {
-      equals(typeof jMonad, "function", "jMonad() is a free var.");
-      equals(typeof window.jMonad, "function", "We also have window.jMonad().");
-      ok(exports === window.jMonad, "The free `exports` symbol points to jMonad().");
-    });
-
-  test("jMonad.noConflict()", 3, function () {
-      stop();
-      jM = jMonad.noConflict();
-      start();
-      equals(typeof jM, "function", "jM() has been asigned.");
-      equals(window.jMonad, 1, "Revert window.jMonad.");
-      same(exports, {}, "Revert exports.");
-    });
-
-  test("jMonad() constructor", 3, function () {
-      M = jM();
-      equals(typeof M, "function", "M() has been built.");
-
-      var m = M("monad name");
-      var a = M("monad name");
-      ok(m === a, "Monads built with the constructor are cached by name.");
-      var b = M("another monad");
-      ok((m != b && a != b),
-        "Passing a different name to a constructor yields a new monad.");
-    });
 
   test(".log()", 2, function () {
       ok(M.log() === M,
@@ -452,6 +512,7 @@ function (load_event, undef) {
 }, false);
   </script>
   <script type="text/javascript" src="http://github.com/jquery/qunit/raw/master/qunit/qunit.js"></script>
+  <script id="dynoscript" type="text/javascript"></script>
 </head>
 
 <body id="body">

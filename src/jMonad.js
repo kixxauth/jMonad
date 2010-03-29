@@ -51,6 +51,13 @@ exports: true
 // Def jMonad global.
 (function (MODULE, undef) {
 
+  // We need module to be an object, so we make it one if it is not.
+  MODULE = (typeof MODULE === "object") ? MODULE : {};
+
+  // We also provide a way of restoring MODULE.jMonad if we clobber it,
+  // so we're stashing it away for that purpose here.
+  var $jMonad = MODULE.jMonad; // Will be undefined in most cases.
+
   function jMonad() {
   var jMonad_log = (function () {
         // Mozilla XPCOM is available.
@@ -438,14 +445,14 @@ exports: true
   }());
   } // End of jMonad function def
 
-  jMonad.noConflict = function no_clobber() {
-    if (typeof window === "object") {
-      window.jMonad = $window;
-    }
-    exports = $exports;
-    return jMonad;
+  jMonad.noConflict = function reverse_clobber() {
+    MODULE.jMonad = $jMonad;
+    return this;
   };
 
+  // MODULE may be the window object or a Mozilla JSM global scope.
+  // It is a reference to the `this` object passed into the enclosed
+  // application construction closure. (seen below)
   MODULE.jMonad = jMonad;
 
 }(this));
