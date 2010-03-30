@@ -39,421 +39,105 @@ maxlen: 80
 */
 
 /*global
-window: true,
-Components: false,
-dump: false,
-console: false,
-exports: true
+window: true
 */
 
 "use strict";
 
-// Def jMonad global.
-(function (MODULE, undef) {
+/**
+ * An anonymous enclosed function is defined here and then immediately executed
+ * at the end of the file.  It is passed the global `window` object which"test
+ * extend" only exists in browsers. The `window` object assigned to MODULE for
+ * ease of use within the jMonad constructor.
+ */
+(function (undef) {
 
-  // We need module to be an object, so we make it one if it is not.
-  MODULE = (typeof MODULE === "object") ? MODULE : {};
+	// If we are in a browser window, `this` will be set to the `window` object.
+	// If we are running as a Mozilla JavaScript module, `this` will be set to
+	// the global module object.
+	var MODULE = this,
 
-  // We also provide a way of restoring MODULE.jMonad if we clobber it,
-  // so we're stashing it away for that purpose here.
-  var $jMonad = MODULE.jMonad; // Will be undefined in most cases.
+		// We also provide a way of restoring MODULE.jMonad if we clobber it,
+		// so we're stashing it away for that purpose here.
+		$jMonad = MODULE.jMonad; // Will be undefined in most cases.
 
-  function jMonad() {
-  var jMonad_log = (function () {
-        // Mozilla XPCOM is available.
-        try {
-          if (typeof Components === "object" &&
-                typeof Components.classes === "object") {
-              return Components.classes["@mozilla.org/fuel/application;1"]
-                       .getService(Components.interfaces.fuelIApplication)
-                       .console.log;
-          }
-        } catch (e) {/* ignore the error */}
+  function construct_Warning(type, message) {
+		var self = new Error(message);
+		self.name = type;
+		self.constructor = construct_Warning;
+		return self;
+	}
 
-        // console.log is available.
-        if (typeof console === "object" &&
-              typeof console.log === "function") {
-          return console.log;
-        }
+	function extend(proto, x, reserved) {
+		reserved = reserved || {};
+		var m, warnings = [];
+		for (m in x) {
+			if (Object.prototype.hasOwnProperty.call(x, m)) {
+				if (!(m in proto) && !(m in reserved)) {
+					proto[m] = x[m];
+				}
+				else {
+					warnings.push(construct_Warning("jMonadWarning",
+						"Naming collision in extend() for '"+ m +"'."));
+				}
+			}
+		}
+		return warnings;
+	}
 
-        if (typeof dump === "function") {
-          return function (msg) { dump(msg +"\n"); };
-        }
+	function construct_monad(proto) {
+		var self = {}, p;
+		for (p in proto) {
+			if (Object.prototype.hasOwnProperty.call(proto, p)) {
+				if (typeof proto[p] === "function") {
+					self[p] = function () {};
+				}
+				else {
+					self[p] = proto[p];
+				}
+			}
+		}
+		return self;
+	}
 
-        // Return a black hole.
-        return function () {};
-      }()),
+	function jMonad() {
 
-      signals = (function () {
-        var sigs = {};
+		var monads_memo = {},
+			warnings = [],
+			prototypes = {},
+			reserved = {"end": true};
 
-        function construct_signal(name) {
-          var observers = {};
+		function monad(name, start_baton) {
+			if (!Object.prototype.hasOwnProperty.call(monads_memo, name)) {
+				monads_memo[name] = construct_monad(prototypes[name] = prototypes[name] || {});
+			}
+			return monads_memo[name];
+		}
 
-          return {
-            observe: function signal_observe(f) {
-              observers[f] = f;
-              if (this.value) {
-                f.call(null, this.value);
-              }
-            },
+		monad.warnings = warnings;
 
-            ignore: function signal_ignore(f) {
-              delete observers[f];
-            },
+		monad.extend = function pub_extend(name, x) {
+			var w = extend((prototypes[name] = prototypes[name] || {}), x, reserved),
+					i = 0;
+			for (; i < w.length; i += 1) {
+				warnings.push(w[i]);
+			}
+			return this;
+		};
 
-            broadcast: function signal_broadcast(context, data) {
-              var ob;
-              this.value = data;
+		return monad;
 
-              for (ob in observers) {
-                if (Object.prototype.hasOwnProperty.call(observers, ob)) {
-                  observers[ob].apply(context, this.value);
-                }
-              }
-            }
-          };
-        }
+	} // End of jMonad constructor function def
 
-        return function (name) {
-            return sigs[name] || (sigs[name] = construct_signal(name));
-          };
-      }());
+	jMonad.noConflict = function reverse_clobber() {
+		MODULE.jMonad = $jMonad;
+		return this;
+	};
 
-  jMonad_log.non_blocking = true;
+	// MODULE may be the window object or a Mozilla JSM global scope.
+	// It is a reference to the `this` object passed into the enclosed
+	// application construction closure. (seen below)
+	MODULE.jMonad = jMonad;
 
-  function jMonad_broadcast(signal) {
-    signals(signal).broadcast(this, Array.prototype.slice.call(arguments, 1));
-    return this;
-  }
-  jMonad_broadcast.non_blocking = true;
-
-  function jMonad_check(signal) {
-    return signals(signal).value;
-  }
-  jMonad_check.non_blocking = true;
-
-  function jMonad_observe() {
-    var callbacks = [], sigs = [], i = 0, n = 0;
-
-    for(; i < arguments.length; i += 1) {
-      if (typeof arguments[i] === "function") {
-        callbacks.push(arguments[i]);
-      }
-      else {
-        sigs.push(arguments[i]);
-      }
-    }
-
-    for (i = 0; i < callbacks.length; i += 1) {
-      for (; n < sigs.length; n += 1) {
-        signals(sigs[n]).observe(callbacks[i]);
-      }
-    }
-
-    return this;
-  }
-  jMonad_observe.non_blocking = true;
-
-  function jMonad_observe_once(signal, callback) {
-    signal = signals(signal);
-    if (typeof callback !== "function") {
-      jMonad_broadcast("jMonad.warning",
-          "The callback argument passed to .observeOnce() by '"+
-          (arguments.callee.caller.name || "anonymous")+
-          "()' is not a function.");
-    }
-
-    signal.observe(function () {
-        signal.ignore(arguments.callee);
-        callback.apply(this, Array.prototype.slice.call(arguments));
-      });
-
-    return this;
-  }
-  jMonad_observe_once.non_blocking = true;
-
-  function jMonad_ignore(signal, callback) {
-    signals(signal).ignore(callback);
-    return this;
-  }
-  jMonad_ignore.non_blocking = true;
-
-  function jMonad_wait(continuation /* signal names and callbacks */) {
-    var callbacks = [], i = 0,
-        observers = [],
-        timer,
-        args = Array.prototype.slice.call(arguments, 1),
-        monad = this;
-
-    function handler() {
-      var i = 0;
-      // Remove all listeners.
-      if (typeof timer === "number") {
-        window.clearTimeout(timer);
-        timer = null;
-      }
-
-      for (; i < observers.length; i += 1) {
-        signals(observers[i]).ignore(handler);
-      }
-
-      for (i = 0; i < callbacks.length; i += 1) {
-        callbacks[i].call(monad);
-      }
-      // The continuation is invoked AFTER all of the callbacks.
-      continuation();
-    }
-
-    for (; i < args.length; i += 1) {
-      if (typeof args[i] === "function") {
-        // If this argument is a function, it is meant to be a callback.
-        callbacks.push(args[i]);
-      }
-      else if (typeof args[i] === "number" && timer === undef) {
-        // If this argument is a number, it is meant to set a timer.
-        // The `+` is used to convert possible strings to ints.
-        timer = window.setTimeout(handler, +args[i]);
-      }
-      else {
-        // If this argument is anything but a function or a number,
-        // it is meant to be a signal identifier.
-        observers.push(args[i]);
-        signals(args[i]).observe(handler);
-      }
-    }
-  }
-
-  function jMonad_wait_and(continuation /* signal names and callbacks */) {
-    var observed = {}, observers = [], i = 0,
-        callbacks = [],
-        timer, timeout,
-        args = Array.prototype.slice.call(arguments, 1),
-        that = this;
-
-    function make_handler(signal) {
-      return function (/* signal data */) {
-          var ok = true, s, i = 0;
-
-          observed[signal] = true;
-          if (signal !== timeout) {
-            signals(signal).ignore(arguments.callee);
-          }
-
-          // Check to see if all the registered observers have been set.
-          for (s in observed) {
-            if (Object.prototype.hasOwnProperty.call(observed, s) &&
-                !observed[s]) {
-              ok = false;
-              break;
-            }
-          }
-
-          if (ok) {
-            for(; i < callbacks.length; i += 1) {
-              callbacks[i].call(that);
-            }
-            // The continuation is invoked AFTER all of the callbacks.
-            continuation();
-          }
-        };
-    }
-
-    for (; i < args.length; i += 1) {
-      if (typeof args[i] === "function") {
-        // If this argument is a function, it is meant to be a callback.
-        callbacks.push(args[i]);
-      }
-      else if (typeof args[i] === "number" && timer === undef) {
-        // If this argument is a number, it is meant to set a timer.
-        // The `+` is used to convert possible strings to ints.
-        observed[args[i]] = false;
-        timeout = args[i];
-        timer = window.setTimeout(make_handler(args[i]), +args[i]);
-      }
-      else {
-        // If this argument is anything but a function or a number,
-        // it is meant to be a signal identifier.
-        observers.push([args[i], make_handler(args[i])]);
-        observed[args[i]] = false;
-      }
-    }
-    for (i = 0; i < observers.length; i += 1) {
-      signals(observers[i][0]).observe(observers[i][1]);
-    }
-  }
-
-  // Observe the jMonad.warning stream internally.
-  jMonad_observe("jMonad.warning", function internal_warning_handler(message) {
-      });
-
-  // Construct jMonad in a closure.
-  return (function () {
-
-    // Memoization of previously created monad objects.
-    var mem = {},
-
-        // The proto object maps dynamic members to a monad object
-        // when the monad object is created.
-        proto = {};
-
-    // A publicly exposed function used to map dynamic extensions to jMonad.
-    // It extends the proto object with the passed object.
-    function extend_jMonad(x) {
-      var m;
-      for (m in x) {
-        if (Object.prototype.hasOwnProperty.call(x, m)) {
-          if (!Object.prototype.hasOwnProperty.call(proto, m)) {
-            proto[m] = x[m];
-          }
-          else {
-            jMonad_broadcast("jMonad.warning",
-              "Naming collision in extend() for '"+ m +"'.");
-          }
-        }
-      }
-
-      return this;
-    }
-
-    // Constructor for new monad objects.
-    function construct_monad(monad_name) {
-      var monad = {name: monad_name}, m,
-          stack = [], blocked = false;
-
-      // This is passed to each invocation of a dynamic method as the first
-      // parameter. The stack is blocked until this function is called from the
-      // dynamic method that was invoked.
-      function done() {
-        var continuation;
-
-        if (!stack.length) {
-          blocked = false;
-        }
-        else {
-          continuation = stack.shift();
-          continuation.f.apply(monad, continuation.args);
-          if (continuation.args[0] !== done) {
-            arguments.callee();
-          }
-        }
-      }
-
-      function push_stack(f, args, blocking) {
-        if (!blocked && !stack.length) {
-          blocked = !!blocking;
-          f.apply(monad, args);
-        }
-        else {
-          stack.push({f: f, args: args});
-        }
-      }
-
-      // A wrapper helper to create dynamic blocking methods and
-      // push them onto this monad's stack.
-      function make_blocking_method(f) {
-        return function () {
-            var args = Array.prototype.slice.call(arguments);
-            args.unshift(done);
-            push_stack(f, args, true);
-            return monad;
-          };
-      }
-
-      // A wrapper helper to create dynamic non blocking methods and
-      // push them onto this monad's stack.
-      function make_non_blocking_method(f) {
-        return function () {
-            push_stack(f,
-                Array.prototype.slice.call(arguments));
-            return monad;
-          };
-      }
-
-      // Builtin dynamic prototypes.
-      // The `non_blocking` flag must be set to prevent a method from being
-      // wrapped as a blocking method.
-      proto.log = jMonad_log;
-      proto.broadcast = jMonad_broadcast;
-      proto.observe = jMonad_observe;
-      proto.observeOnce = jMonad_observe_once;
-      proto.wait = jMonad_wait;
-      proto.waitAnd = jMonad_wait_and;
-      proto.ignore = jMonad_ignore;
-
-      // Extend this monad object with the dynamic methods.
-      for (m in proto) {
-        if (Object.prototype.hasOwnProperty.call(proto, m)) {
-          if (typeof proto[m] === "function") {
-            // If the member is a function, we need to wrap it.
-            monad[m] = proto[m].non_blocking ?
-                      make_non_blocking_method(proto[m]) :
-                      make_blocking_method(proto[m]);
-          }
-          else if (proto[m] !== undef) {
-            // Anything other than a function, as long as it is not undef,
-            // just gets a reference pointer to it.
-            monad[m] = proto[m];
-          }
-        }
-      }
-
-      monad.push = function jMonad_push(f) {
-        if (typeof f !== "function") {
-          jMonad_broadcast("jMonad.warning",
-              "A non-function was passed as the first parameter to .push()");
-          return monad;
-        }
-        push_stack(f,
-            Array.prototype.slice.call(arguments, 1));
-        return this;
-      };
-
-      monad.block = function jMonad_block(f) {
-        if (typeof f !== "function") {
-          jMonad_broadcast("jMonad.warning",
-              "A non-function was passed as the first parameter to .block()");
-          return monad;
-        }
-        var args = Array.prototype.slice.call(arguments, 1);
-        args.unshift(done);
-        push_stack(f, args, true);
-        return this;
-      };
-
-      return monad;
-    }
-
-    // The monad constructor function itself.
-    function self(name) {
-        return mem[name] || (mem[name] = construct_monad(name));
-    }
-
-    // Extend this monad constructor with the static members of jMonad.
-    self.extend = extend_jMonad;
-    self.log = function (message) {
-      jMonad_log(message);
-      return self;
-    };
-    self.broadcast = jMonad_broadcast;
-    self.check = jMonad_check;
-    self.observe = jMonad_observe;
-    self.observeOnce = jMonad_observe_once;
-    self.ignore = jMonad_ignore;
-
-    return self;
-  }());
-  } // End of jMonad function def
-
-  jMonad.noConflict = function reverse_clobber() {
-    MODULE.jMonad = $jMonad;
-    return this;
-  };
-
-  // MODULE may be the window object or a Mozilla JSM global scope.
-  // It is a reference to the `this` object passed into the enclosed
-  // application construction closure. (seen below)
-  MODULE.jMonad = jMonad;
-
-}(this));
+}());
 
