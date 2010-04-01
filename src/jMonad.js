@@ -38,8 +38,17 @@ immed: true,
 maxlen: 80
 */
 
+/*members "@mozilla.org\/thread-manager;1", DISPATCH_NORMAL, apply, 
+    blocking, call, classes, constructor, die, dispatch, end, exception, 
+    exception_val, extend, fulfilled, fulfilled_val, getService, 
+    hasOwnProperty, interfaces, jMonad, length, mainThread, name, 
+    noConflict, nsIThread, nsIThreadManager, observers, progress, prototype, 
+    push, resolved, returns, run, shift, slice, unshift, warnings
+*/
+
 /*global
-setTimeout: false
+setTimeout: false,
+Components: false
 */
 
 "use strict";
@@ -88,9 +97,22 @@ setTimeout: false
 	}
 
 	enqueue = (function () {
-		return function (fn) {
-			setTimeout(fn, 0);
-		};
+		try {
+			if (typeof setTimeout !== "function") {
+				throw 1;
+			}
+			return function  global_queue(fn) {
+				setTimeout(fn, 0);
+			};
+		} catch (e) {
+			var tm = Components.classes["@mozilla.org/thread-manager;1"].
+							 getService(Components.interfaces.nsIThreadManager);
+
+			return function global_queue(fn) {
+				tm.mainThread.dispatch({run: fn},
+					Components.interfaces.nsIThread.DISPATCH_NORMAL);
+			};
+		}
 	}());
 
 	function construct_pub_promise(spec) {
@@ -98,8 +120,8 @@ setTimeout: false
 			if (typeof fulfilled === "function") {
 				if (spec.fulfilled_val) {
 					enqueue(function () {
-							fulfilled.apply(null, spec.fulfilled_val);
-						});
+						fulfilled.apply(null, spec.fulfilled_val);
+					});
 				}
 				else {
 					spec.observers.fulfilled.push(fulfilled);
@@ -108,8 +130,8 @@ setTimeout: false
 			if (typeof exception === "function") {
 				if (spec.exception_val) {
 					enqueue(function () {
-							exception.apply(null, spec.exception_val);
-						});
+						exception.apply(null, spec.exception_val);
+					});
 				}
 				else {
 					spec.observers.exception.push(exception);
@@ -181,11 +203,9 @@ setTimeout: false
 		}
 
 		enqueue(function init_promise() {
-				init(
-						broadcast_fulfill,
-						broadcast_exception,
-						broadcast_progress);
-			});
+			init(broadcast_fulfill,
+					broadcast_exception, broadcast_progress);
+		});
 
 		return construct_pub_promise(spec);
 	}
@@ -224,7 +244,8 @@ setTimeout: false
 			if (done) {
 				return;
 			}
-			broadcast_progress.apply(null, Array.prototype.slice.call(arguments));
+			broadcast_progress.apply(
+					null, Array.prototype.slice.call(arguments));
 		}
 
 		function next() {
@@ -304,13 +325,12 @@ setTimeout: false
 			prototypes = {};
 
 		function monad(name, start_baton) {
-			if (start_baton || !Object.prototype.hasOwnProperty.call(monads_memo, name)) {
-				dump("building "+ name +"\n");
+			if (start_baton ||
+					!Object.prototype.hasOwnProperty.call(monads_memo, name)) {
 				monads_memo[name] = construct_monad(
 						(prototypes[name] = prototypes[name] || {}),
 						start_baton, name);
 			}
-			dump("returning "+ name +"\n");
 			return monads_memo[name];
 		}
 

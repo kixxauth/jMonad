@@ -7,10 +7,7 @@
 				href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" />
 	<script type="text/javascript">
 
-dump("\n START\n");
-dump(" -----\n");
-
-// Cross platform event listener.
+// Cross platform event listener helper.
 function addEvent(elem, name, cb) {
 	if (typeof elem.addEventListener === "function") {
 		elem.addEventListener(name, cb, false);
@@ -26,7 +23,8 @@ function addEvent(elem, name, cb) {
 window.addEventListener("load",
 function (load_event, undef) {
 
-	// A shortcut to the jMonad initializer, and the returned monad constructor function.
+	// A shortcut to the jMonad initializer, and the returned monad constructor function
+	// that will be assigned later.
 	var jM, M;
 
 	// We have not included jMonad.js with a script tag or
@@ -51,7 +49,7 @@ function (load_event, undef) {
 
 	// If we are loaded in an envirement without Mozilla chrome privileges,
 	// (which would be most of them) we do not want to run the Mozilla JSM
-	// complience tests.
+	// complience tests. So, we put them in this try block.
 	try {
 
 		// Attempting to accecc XPCComponents will raise an error,
@@ -202,7 +200,7 @@ function (load_event, undef) {
 
 	// JMonad provides an extention mechanism that us used to add functionality
 	// to a monad constructor returned from a call to jMonad().
-	// However, jMonad does not allow a caller to extend() to overwrite any methods or
+	// However, jMonad does not allow a caller of extend() to overwrite any methods or
 	// properties that have already been attached to the monad constructor.
 	test(".extend()", 2, function () {
 
@@ -248,7 +246,7 @@ function (load_event, undef) {
 
 	// Here we extend a monad constructor, and then create and execute a new
 	// monad with it.
-	test("Extended monad.", 54, function () {
+	test("Extended monad.", 46, function () {
 
 			// Get a new constructor.
 			var C = jM();
@@ -266,7 +264,6 @@ function (load_event, undef) {
 
 				// Make something happen later.
 				setTimeout(function () {
-				    self.progress("stacked", 1);
 
 						// The M parameter is known as the baton. It gets passed all the
 						// way through the monad execution. It should be designed to be
@@ -289,14 +286,10 @@ function (load_event, undef) {
 
 					}, 0);
 
-				// The internal .progress() method of a monad can send
-				// notifications to listeners attached at the bottom of this test
-				// function.
-				this.progress("start", 1);
-
-				// These two functions must exist, but are not tested here.
+				// These 3 functions must exist, but are not tested here.
 				equals(typeof this.die, "function", "a.die() is a func");
 				equals(typeof this.end, "function", "a.end() is a func");
+				equals(typeof this.progress, "function", "a.progress() is a func");
 			}
 
 			// By setting `blocking` to true, this function will block further
@@ -307,19 +300,15 @@ function (load_event, undef) {
 			// Parameters are the same as for a().
 			function b(M, R, x, y) {
 
-				// The internal .progress() method of a monad can send
-				// notifications to listeners attached at the bottom of this test
-				// function.
-				this.progress("start", 2);
-
 				// The internal functions .die() and .returns() are not provided to
 				// methods where the `blocking` property does not exist, or is set to
 				// false.
 				equals(this.die, undefined, "a.die() is NOT a func");
 				equals(this.returns, undefined, "a.returns() is NOT a func");
 
-				// The end function is available, but not tested here.
+				// end() and progress() functions are available, but not tested here.
 				equals(typeof this.end, "function", "a.end() is a func");
+				equals(typeof this.progress, "function", "a.progress() is a func");
 
 				// The M parameter is known as the baton. It gets passed all the way
 				// through the monad execution. It should be designed to be mutated
@@ -349,7 +338,6 @@ function (load_event, undef) {
 				var self = this;
 
 				setTimeout(function () {
-				    self.progress("stacked", 2);
 
 						// The M parameter is known as the baton. It gets passed all the
 						// way through the monad execution. It should be designed to be
@@ -371,14 +359,10 @@ function (load_event, undef) {
 					}, 0);
 
 
-				// The internal .progress() method of a monad can send
-				// notifications to listeners attached at the bottom of this test
-				// function.
-				this.progress("start", 3);
-
-				// These two functions must exist, but are not tested here.
+				// These 3 functions must exist, but are not tested here.
 				equals(typeof this.die, "function", "a.die() is a func");
 				equals(typeof this.end, "function", "a.end() is a func");
+				equals(typeof this.progress, "function", "a.progress() is a func");
 			}
 
 			// By setting `blocking` to true, this function will block further
@@ -389,19 +373,15 @@ function (load_event, undef) {
 			// Parameters are the same as for a().
 			function d(M, R, x, y) {
 
-				// The internal .progress() method of a monad can send
-				// notifications to listeners attached at the bottom of this test
-				// function.
-				this.progress("start", 4);
-
 				// The internal functions .die() and .returns() are not provided to
 				// methods where the `blocking` property does not exist, or is set to
 				// false.
 				equals(this.die, undefined, "a.die() is NOT a func");
 				equals(this.returns, undefined, "a.returns() is NOT a func");
 
-				// The end function is available, but not tested here.
+				// end() and progress() functions are available, but not tested here.
 				equals(typeof this.end, "function", "a.end() is a func");
+				equals(typeof this.progress, "function", "a.progress() is a func");
 
 				// The M parameter is known as the baton. It gets passed all the way
 				// through the monad execution. It should be designed to be mutated
@@ -435,53 +415,6 @@ function (load_event, undef) {
 				.r(3, "c")
 				.s(4, "d");
 
-			// Creates and returns a function for each progress event observed.
-			var progress_listener = (function () {
-				var count = 0;
-
-				return function () {
-					count += 1;
-
-					if (count === 1) {
-						return function (name, val) {
-							equals(name, "start", "a sends start");
-							equals(val, 1, "a starts 1");
-						}
-					}
-					if (count === 2) {
-						return function (name, val) {
-							equals(name, "stacked", "a sends stack");
-							equals(val, 1, "a stacks 1");
-						}
-					}
-					if (count === 3) {
-						return function (name, val) {
-							equals(name, "start", "b sends start");
-							equals(val, 2, "b starts 2");
-						}
-					}
-					if (count === 4) {
-						return function (name, val) {
-							equals(name, "start", "c sends start");
-							equals(val, 3, "c starts 3");
-						}
-					}
-					if (count === 5) {
-						return function (name, val) {
-							equals(name, "stacked", "c sends stack");
-							equals(val, 2, "a stacks 2");
-						}
-					}
-					if (count === 6) {
-						return function (name, val) {
-							equals(name, "start", "d sends start");
-							equals(val, 4, "d starts 4");
-						}
-					}
-				};
-
-			}());
-
 			// Register the fulfilled, exception, and progress event listeners on the
 			// monad we just executed. This call will return a promise that can be
 			// used to register another set of listeners.
@@ -495,9 +428,6 @@ function (load_event, undef) {
 					function exception(ex) {
 						ok(false, "exception should not be called.");
 						start();
-					},
-					function progress(name, val) {
-						progress_listener()(name, val);
 					});
 
 			equals(typeof p2, "function", "A promise returns a promise function.");
@@ -733,6 +663,111 @@ function (load_event, undef) {
 						equals(e, 7, "7 was thrown.");
 						start();
 					});
+		});
+
+	test("Progress reporting and observing.", 12, function () {
+
+			// Get a new constructor.
+			var C = jM();
+
+			function a() {
+
+				// Capture the value of `this` so
+				// we can use it in a callback closure.
+				var self = this;
+
+				// Make something happen later.
+				setTimeout(function () {
+				    self.progress("stacked", 1);
+						self.returns();
+
+					}, 0);
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 1);
+			}
+
+			// By setting `blocking` to true, this function will block further
+			// execution of the monad until it calls its internal .returns()
+			// function.
+			a.blocking = true;
+
+			function b() {
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 2);
+
+			}
+
+			C.extend("ex", {p:a, q:b, r:a, s:b});
+
+			stop();
+
+			// Create and execute our monad, returning a promise function that can be
+			// used to register event listeners.
+			var p = C("ex", {})
+				.p()
+				.q()
+				.r()
+				.s();
+
+			// Creates and returns a function for each progress event observed.
+			var progress_listener = (function () {
+				var count = 0;
+
+				return function () {
+					count += 1;
+
+					if (count === 1) {
+						return function (name, val) {
+							equals(name, "start", "a sends start");
+							equals(val, 1, "a starts 1");
+						}
+					}
+					if (count === 2) {
+						return function (name, val) {
+							equals(name, "stacked", "a sends stack");
+							equals(val, 1, "a stacks 1");
+						}
+					}
+					if (count === 3) {
+						return function (name, val) {
+							equals(name, "start", "b sends start");
+							equals(val, 2, "b starts 2");
+						}
+					}
+					if (count === 4) {
+						return function (name, val) {
+							equals(name, "start", "a sends start");
+							equals(val, 1, "a starts 1");
+						}
+					}
+					if (count === 5) {
+						return function (name, val) {
+							equals(name, "stacked", "a sends stack");
+							equals(val, 1, "a stacks 1");
+						}
+					}
+					if (count === 6) {
+						return function (name, val) {
+							equals(name, "start", "b sends start");
+							equals(val, 2, "d starts 2");
+							start();
+						}
+					}
+				};
+
+			}());
+
+			// Register the progress event listener on the monad we just executed.
+			p(null, null, function progress(name, val) {
+						progress_listener()(name, val);
+					});
+
 		});
 
 }, false);
