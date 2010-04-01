@@ -71,12 +71,11 @@ setTimeout: false
 		return self;
 	}
 
-	function extend(proto, x, reserved) {
-		reserved = reserved || {};
+	function extend(proto, x) {
 		var m, warnings = [];
 		for (m in x) {
 			if (Object.prototype.hasOwnProperty.call(x, m)) {
-				if (!(m in proto) && !(m in reserved)) {
+				if (!(m in proto)) {
 					proto[m] = x[m];
 				}
 				else {
@@ -279,8 +278,7 @@ setTimeout: false
 
 		var monads_memo = {},
 			warnings = [],
-			prototypes = {},
-			reserved = {"end": true};
+			prototypes = {};
 
 		function monad(name, start_baton) {
 			if (start_baton || !Object.prototype.hasOwnProperty.call(monads_memo, name)) {
@@ -294,7 +292,7 @@ setTimeout: false
 		monad.warnings = warnings;
 
 		monad.extend = function pub_extend(name, x) {
-			var w = extend((prototypes[name] = prototypes[name] || {}), x, reserved),
+			var w = extend((prototypes[name] = prototypes[name] || {}), x),
 					i = 0;
 			for (; i < w.length; i += 1) {
 				warnings.push(w[i]);

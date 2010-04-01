@@ -208,14 +208,16 @@ function (load_event, undef) {
 
 			equals(typeof M.extend, "function", ".extend() is a function.");
 
-			// The end() function already exists on the monad constructor prototype,
+			M.extend("test extend", {foo: function () {}});
+
+			// The foo() function already exists on the monad constructor prototype,
 			// so we cannot extend it.
-			M.extend("test extend", {end: function () {}});
+			M.extend("test extend", {foo: 1});
 
 			// We can get a warning telling us why our end() function was not added
 			// to the prototype.
 			equals(M.warnings[0].toString(),
-				"jMonadWarning: Naming collision in extend() for 'end'.",
+				"jMonadWarning: Naming collision in extend() for 'foo'.",
 				"Warned for clobbering.");
 
 		});
@@ -425,16 +427,18 @@ function (load_event, undef) {
 
 			stop();
 
+			// Create and execute our monad, returning a promise function that can be
+			// used to register event listeners.
 			var p = C("ex", baton)
 				.p(1, "a")
 				.q(2, "b")
 				.r(3, "c")
 				.s(4, "d");
 
+			// Creates and returns a function for each progress event observed.
 			var progress_listener = (function () {
 				var count = 0;
 
-				// Create and return a function for each progress event observed.
 				return function () {
 					count += 1;
 
