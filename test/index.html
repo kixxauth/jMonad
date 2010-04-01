@@ -504,10 +504,72 @@ function (load_event, undef) {
 
 		});
 
-	/*
-	test("monkey patching `this`", 1, function () {
+	// If a method attached to a monad tries to change the `this` object given to
+	// it, the change will not stick. The properties added to `this` by one
+	// method will not be seen in any other methods.
+	test("monkey patching `this`", 19, function () {
+
+			// Get a new constructor.
+			var MC = jM();
+
+			function a(M, R) {
+				equals(typeof this.returns, "function", "a has .returns()");
+				equals(typeof this.die, "function", "a has .die()");
+				equals(typeof this.end, "function", "a has .end()");
+				equals(typeof this.progress, "function", "a has .progress()");
+
+				// Try to monkey patch `this'.
+				this.monkeyPatch = 1;
+
+				this.returns();
+			}
+			a.blocking = true;
+
+			function b(M, R) {
+				equals(typeof this.returns, "function", "b has .returns()");
+				equals(typeof this.die, "function", "b has .die()");
+				equals(typeof this.end, "function", "b has .end()");
+				equals(typeof this.progress, "function", "b has .progress()");
+
+				// The monkey patch did not work.
+				equals(this.monkeyPatch, undefined, "No mp in b");
+
+				// Try to monkey patch `this'.
+				this.monkeyPatch = 2;
+
+				this.returns();
+			}
+			b.blocking = true;
+
+			function c(M, R) {
+				equals(this.returns, undefined, "c does NOT have .returns()");
+				equals(this.die, undefined, "c does NOT have .die()");
+				equals(typeof this.end, "function", "c has .end()");
+				equals(typeof this.progress, "function", "c has .progress()");
+
+				// The monkey patch did not work.
+				equals(this.monkeyPatch, undefined, "No mp in c");
+
+				// Try to monkey patch `this'.
+				this.monkeyPatch = 3;
+			}
+
+			function d(M, R) {
+				equals(this.returns, undefined, "c does NOT have .returns()");
+				equals(this.die, undefined, "c does NOT have .die()");
+				equals(typeof this.end, "function", "d has .end()");
+				equals(typeof this.progress, "function", "d has .progress()");
+
+				// The monkey patch did not work.
+				equals(this.monkeyPatch, undefined, "No mp in d");
+			}
+
+			stop();
+			MC.extend("mp", {a:a, b:b, c:c, d:d})("mp")
+				.a().b().c().d()(function () { start(); });
 		});
 
+	/*
 	test(".end() Short circuit in a monad.", 1, function () {
 		});
 
