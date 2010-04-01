@@ -255,26 +255,26 @@ setTimeout: false
 				var args = Array.prototype.slice.call(arguments);
 
 				stack.push(function () {
-						var rv, controller = {progress: progress, end: end};
+					var rv, controller = {progress: progress, end: end};
 
-						if (blocking) {
-							controller.returns = returns;
-							controller.die = die;
-						}
-						args.unshift(returnval);
-						args.unshift(baton);
+					if (blocking) {
+						controller.returns = returns;
+						controller.die = die;
+					}
+					args.unshift(returnval);
+					args.unshift(baton);
 
-						try {
-							rv = fn.apply(controller, args);
-						} catch (ex) {
-							die(ex);
-							return;
-						}
+					try {
+						rv = fn.apply(controller, args);
+					} catch (ex) {
+						die(ex);
+						return;
+					}
 
-						if (!blocking) {
-							returns(rv);
-						}
-					});
+					if (!blocking) {
+						returns(rv);
+					}
+				});
 
 				return this;
 			};

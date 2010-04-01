@@ -597,7 +597,7 @@ function (load_event, undef) {
 			function c(M, R) {
 				ok(false, "c should not be called.");
 			}
-			a.blocking = true;
+			c.blocking = true;
 
 			function d(M, R) {
 				M.x = "x";
@@ -651,10 +651,89 @@ function (load_event, undef) {
 					});
 		});
 
-	/*
-	test(".die() Killing a blocking call." 1, function () {
+	// Handling errors and killing a monad process.
+	test("Killing a monad; .die() and `throw`", 6, function () {
+
+			// Get a new constructor.
+			var MC = jM();
+
+			function a(M, R) {
+				M.k = 2;
+				M.j = 1;
+
+				var self = this;
+
+				setTimeout(function () {
+					// After making a mutation on M, .die() is called, passing 1 as the
+					// return value. In this case, the call to .returns() is never
+					// executed since it follows the call to .die().
+					self.die(1);
+					self.returns(2);
+
+					// A second call to die is ignored.
+					self.die("foo");
+
+				}, 0);
+			}
+			a.blocking = true;
+
+			function b(M, R) {
+				M.n = 7;
+				ok(false, "b should not be called.");
+				return 3;
+			}
+
+			function c(M, R) {
+				ok(false, "c should not be called.");
+			}
+			c.blocking = true;
+
+			function d(M, R) {
+				M.x = "x";
+
+				// .die() is NOT available in non blocking functions but the normal
+				// JavaScript `throw` statement works the same way.  The thrown value
+				// will become the return value.
+				throw 7;
+				ok(false, "this test NOT happen");
+				return 4;
+			}
+
+			stop();
+
+			var mo = {'k': 1};
+			MC.extend("end1", {a:a, b:b, c:c, d:d})("end1", mo)
+				.a().b()(function (m, v) {
+						ok(false, "end1 fulfilled should not be called.");
+					},
+					function (e, v) {
+						equals(v, undefined, "nothing but the exception should be passed.");
+						equals(e, 1, "1 was thrown.");
+					});
+
+			// If we immediately invoke the monad again, the previous values are all sent
+			// to the callback. No changes will be made.
+			MC("end1")
+				.d().c()(function (m, v) {
+						ok(false, "end1 fulfilled should not be called.");
+					},
+					function (e, v) {
+						equals(v, undefined, "nothing but the exception should be passed.");
+						equals(e, 1, "1 was thrown.");
+					});
+
+			// If we invoke the monad with a new baton, it will reload itself.
+			var mon = {};
+			MC("end1", mon)
+				.d().c().b().a()(function (m, v) {
+						ok(false, "end1 fulfilled should not be called.");
+					},
+					function (e, v) {
+						equals(v, undefined, "nothing but the exception should be passed.");
+						equals(e, 7, "7 was thrown.");
+						start();
+					});
 		});
-		*/
 
 }, false);
 	</script>
