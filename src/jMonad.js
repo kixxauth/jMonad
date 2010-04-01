@@ -145,7 +145,7 @@ setTimeout: false
 				return;
 			}
 
-			var i = 0,
+			var i = 0, val,
 					observers = spec.observers[type],
 					len = observers.length;
 
@@ -156,8 +156,15 @@ setTimeout: false
 				return;
 			}
 
+			if (type === "fulfilled") {
+				val = spec.fulfilled_val = Array.prototype.slice.call(args);
+			}
+			else {
+				val = spec.exception_val = Array.prototype.slice.call(args);
+			}
+
 			for (; i < len; i += 1) {
-				enqueue(make_queued(observers[i], Array.prototype.slice.call(args)));
+				enqueue(make_queued(observers[i], val));
 			}
 		}
 
