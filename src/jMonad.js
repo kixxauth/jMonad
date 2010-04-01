@@ -193,6 +193,7 @@ setTimeout: false
 	function construct_monad(proto, baton, name) {
 		var self,
 				p,
+				done = false,
 				broadcast_fulfill,
 				broadcast_progress,
 				broadcast_exception,
@@ -201,21 +202,33 @@ setTimeout: false
 				returnval;
 
 		function end() {
-			broadcast_fulfill(baton, returnval);
-			// TODO: Any other cleanup that can be done here?
+			if (done) {
+				return;
+			}
+			done = true;
+			stack = [];
+			broadcast_fulfill(baton,
+					(arguments.length ? arguments[0] : returnval));
 		}
 
 		function die(ex) {
+			if (done) {
+				return;
+			}
+			done = true;
+			stack = [];
 			broadcast_exception(ex);
-			// TODO: Any other cleanup that can be done here?
 		}
 
 		function progress() {
+			if (done) {
+				return;
+			}
 			broadcast_progress.apply(null, Array.prototype.slice.call(arguments));
 		}
 
 		function next() {
-			if (blocked) {
+			if (done || blocked) {
 				return;
 			}
 			if (stack.length) {
@@ -227,6 +240,9 @@ setTimeout: false
 		}
 
 		function returns(rv) {
+			if (done) {
+				return;
+			}
 			blocked = false;
 			returnval = rv;
 			next();
@@ -289,10 +305,12 @@ setTimeout: false
 
 		function monad(name, start_baton) {
 			if (start_baton || !Object.prototype.hasOwnProperty.call(monads_memo, name)) {
+				dump("building "+ name +"\n");
 				monads_memo[name] = construct_monad(
 						(prototypes[name] = prototypes[name] || {}),
 						start_baton, name);
 			}
+			dump("returning "+ name +"\n");
 			return monads_memo[name];
 		}
 

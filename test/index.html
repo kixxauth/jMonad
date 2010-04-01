@@ -569,10 +569,89 @@ function (load_event, undef) {
 				.a().b().c().d()(function () { start(); });
 		});
 
-	/*
-	test(".end() Short circuit in a monad.", 1, function () {
+	// A monad can be prematurely terminated with a call to the internal .end()
+	// function.
+	test(".end() Short circuit in a monad.", 14, function () {
+
+			// Get a new constructor.
+			var MC = jM();
+
+			function a(M, R) {
+				M.k = 2;
+				M.j = 1;
+
+				// After making a mutation on M, .end() is called, passing 1 as the
+				// return value. In this case, the call to .returns() is never
+				// executed since it follows the call to .end().
+				this.end(1);
+				this.returns(2);
+			}
+			a.blocking = true;
+
+			function b(M, R) {
+				M.n = 7;
+				ok(false, "b should not be called.");
+				return 3;
+			}
+
+			function c(M, R) {
+				ok(false, "c should not be called.");
+			}
+			a.blocking = true;
+
+			function d(M, R) {
+				M.x = "x";
+
+				// .end() is also available to call in non blocking functions and works
+				// the same way as in blocking functions.  Statements after the call to
+				// .end() will continue to execute, but the value returned by the
+				// return statement will be ignored. The value passed to .end() will be
+				// used as the return value instead.
+				this.end(7);
+				ok(true, "this test still happens");
+				return 4;
+			}
+
+			stop();
+
+			var mo = {'k': 1};
+			MC.extend("end1", {a:a, b:b, c:c, d:d})("end1", mo)
+				.a().b()(function (m, v) {
+						ok(m === mo, "The monad baton was passed.");
+
+						// a() was called.
+						equals(m.k, 2, "k changed to 2");
+						equals(m.j, 1, "added j");
+						equals(v, 1, "returned 1");
+
+						// b() was NOT called.
+						equals(m.n, undefined, "n was NOT added");
+					});
+
+			// If we immediately invoke the monad again, the previous values are all sent
+			// to the callback. No changes will be made.
+			MC("end1")
+				.b().c()(function (m, v) {
+						ok(m === mo, "The monad baton was passed.");
+						equals(m.k, 2, "k changed to 2");
+						equals(m.j, 1, "added j");
+						equals(m.n, undefined, "n was NOT added");
+						equals(v, 1, "returned 1");
+					});
+
+			// If we invoke the monad with a new baton, it will reload itself.
+			var mon = {};
+			MC("end1", mon)
+				.d().c().b().a()(function (m, v) {
+						// d() was the only method called
+						ok(m === mon, "reloaded");
+						equals(m.x, "x", "M was mutated.");
+						equals(v, 7, "return value is 7");
+						start();
+					});
 		});
 
+	/*
 	test(".die() Killing a blocking call." 1, function () {
 		});
 		*/
