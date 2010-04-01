@@ -1,6 +1,28 @@
 jMonad Release Notes
 ====================
 
+### Version 0.2 April 1st, 2010
+-------------------------------
+
+This is the second release. The only documentation for this project so far is
+the comments in test/index.hml so make sure to browser through the tests and
+comments in that file.
+
+New in this release, monad initialization as well as all monad method
+invocations go onto a stack which pushed them onto the native event loop for
+later execution. This limits performance of jMonad compositions, but gives
+control back to the native loop of the browser.
+
+Use of the event loop also allowed for a monad to be handled like a
+deferred/promise which is quite handy.
+
+For this release, the broadcaster/observer helpers were removed as were the
+push() and block() methods. There are no longer any methods attached to a monad
+function when it is created other than specified by a call to .extend().
+
+In the spirit of minimalism, all other functionality should be added with
+plugins that use .extend();
+
 ### Version 0.1 March 24th, 2010
 --------------------------------
 

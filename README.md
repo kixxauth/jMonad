@@ -13,6 +13,9 @@ could use monads too. So far it is frickin awesome.
 Also, check [this out][4]. It is a good real world analogy of why monads can
 make complex programs easier to build in any language.
 
+I'll document this project as soon as I have time. In the mean time you may
+want to check out the RELEASE_NOTES and test.index.html.
+
 My name is Kris Walker. Contact me with questions.
 
 Licensed under The MIT License
