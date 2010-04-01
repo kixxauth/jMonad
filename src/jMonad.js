@@ -39,7 +39,7 @@ maxlen: 80
 */
 
 /*global
-window: true
+setTimeout: false
 */
 
 "use strict";
@@ -59,7 +59,10 @@ window: true
 
 		// We also provide a way of restoring MODULE.jMonad if we clobber it,
 		// so we're stashing it away for that purpose here.
-		$jMonad = MODULE.jMonad; // Will be undefined in most cases.
+		$jMonad = MODULE.jMonad, // Will be undefined in most cases.
+
+		// A function for putting tasks (functions) on the global/native stack.
+		enqueue; // Assigned below.
 
   function construct_Warning(type, message) {
 		var self = new Error(message);
@@ -85,16 +88,188 @@ window: true
 		return warnings;
 	}
 
-	function construct_monad(proto) {
-		var self = {}, p;
-		for (p in proto) {
-			if (Object.prototype.hasOwnProperty.call(proto, p)) {
-				if (typeof proto[p] === "function") {
-					self[p] = function () {};
+	enqueue = (function () {
+		return function (fn) {
+			setTimeout(fn, 0);
+		};
+	}());
+
+	function construct_pub_promise(spec) {
+		return function (fulfilled, exception, progress) {
+			if (typeof fulfilled === "function") {
+				if (spec.fulfilled_val) {
+					enqueue(function () {
+							fulfilled.apply(null, spec.fulfilled_val);
+						});
 				}
 				else {
-					self[p] = proto[p];
+					spec.observers.fulfilled.push(fulfilled);
 				}
+			}
+			if (typeof exception === "function") {
+				if (spec.exception_val) {
+					enqueue(function () {
+							exception.apply(null, spec.exception_val);
+						});
+				}
+				else {
+					spec.observers.exception.push(exception);
+				}
+			}
+			if (typeof progress === "function") {
+				spec.observers.progress.push(progress);
+			}
+			return construct_pub_promise(spec);
+		};
+	}
+
+	function construct_promise(init) {
+		var spec = {
+					resolved: false,
+					fulfilled_val: null,
+					exception_val: null,
+					observers: {
+						fulfilled: [],
+						exception: [],
+						progress: []
+					}
+				};
+
+		function make_queued(fn, args) {
+			return function () {
+				fn.apply(null, args);
+			};
+		}
+
+		function broadcast(type, args) {
+			if (spec.fulfilled_val || spec.exception_val) {
+				return;
+			}
+
+			var i = 0,
+					observers = spec.observers[type],
+					len = observers.length;
+
+			if (type === "progress") {
+				for (; i < len; i += 1) {
+					observers[i].apply(null, args);
+				}
+				return;
+			}
+
+			for (; i < len; i += 1) {
+				enqueue(make_queued(observers[i], Array.prototype.slice.call(args)));
+			}
+		}
+
+		function broadcast_fulfill() {
+			broadcast("fulfilled", arguments);
+		}
+
+		function broadcast_exception() {
+			broadcast("exception", arguments);
+		}
+
+		function broadcast_progress() {
+			broadcast("progress", arguments);
+		}
+
+		enqueue(function init_promise() {
+				init(
+						broadcast_fulfill,
+						broadcast_exception,
+						broadcast_progress);
+			});
+
+		return construct_pub_promise(spec);
+	}
+
+	function construct_monad(proto, baton, name) {
+		var self,
+				p,
+				broadcast_fulfill,
+				broadcast_progress,
+				broadcast_exception,
+				stack = [],
+				blocked = false,
+				returnval;
+
+		function end() {
+			broadcast_fulfill(baton, returnval);
+			// TODO: Any other cleanup that can be done here?
+		}
+
+		function die(ex) {
+			broadcast_exception(ex);
+			// TODO: Any other cleanup that can be done here?
+		}
+
+		function progress() {
+			broadcast_progress.apply(null, Array.prototype.slice.call(arguments));
+		}
+
+		function next() {
+			if (blocked) {
+				return;
+			}
+			if (stack.length) {
+				blocked = true;
+				enqueue(stack.shift());
+				return;
+			}
+			end();
+		}
+
+		function returns(rv) {
+			blocked = false;
+			returnval = rv;
+			next();
+		}
+
+		function construct_method(fn) {
+			var blocking = !!fn.blocking;
+
+			return function () {
+				var args = Array.prototype.slice.call(arguments);
+
+				stack.push(function () {
+						var rv, controller = {progress: progress, end: end};
+
+						if (blocking) {
+							controller.returns = returns;
+							controller.die = die;
+						}
+						args.unshift(returnval);
+						args.unshift(baton);
+
+						try {
+							rv = fn.apply(controller, args);
+						} catch (ex) {
+							die(ex);
+							return;
+						}
+
+						if (!blocking) {
+							returns(rv);
+						}
+					});
+
+				return this;
+			};
+		}
+
+		self = construct_promise(
+				function init_monad_promise(fulfill, exception, progress) {
+					broadcast_fulfill = fulfill;
+					broadcast_progress = progress;
+					broadcast_exception = exception;
+					next();
+				});
+
+		for (p in proto) {
+			if (Object.prototype.hasOwnProperty.call(proto, p)) {
+				self[p] = (typeof proto[p] === "function") ?
+					construct_method(proto[p]) : proto[p];
 			}
 		}
 		return self;
@@ -108,8 +283,10 @@ window: true
 			reserved = {"end": true};
 
 		function monad(name, start_baton) {
-			if (!Object.prototype.hasOwnProperty.call(monads_memo, name)) {
-				monads_memo[name] = construct_monad(prototypes[name] = prototypes[name] || {});
+			if (start_baton || !Object.prototype.hasOwnProperty.call(monads_memo, name)) {
+				monads_memo[name] = construct_monad(
+						(prototypes[name] = prototypes[name] || {}),
+						start_baton, name);
 			}
 			return monads_memo[name];
 		}

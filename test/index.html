@@ -7,6 +7,9 @@
 				href="http://github.com/jquery/qunit/raw/master/qunit/qunit.css" />
 	<script type="text/javascript">
 
+dump("\n START\n");
+dump(" -----\n");
+
 // Cross platform event listener.
 function addEvent(elem, name, cb) {
 	if (typeof elem.addEventListener === "function") {
@@ -184,26 +187,28 @@ function (load_event, undef) {
 			// However, we can still construct a new monad by passing a different
 			// name to the constructor.
 			var mc = M("another monad");
-			ok((mb != mc && ma != mc),
+			ok((mb !== mc && ma !== mc),
 				"Passing a different name to a constructor yields a new monad.");
 
 		});
 
+	// jMonad fails quietly in many situations. However, there is a way to get
+	// information about failures.
 	test(".warnings", 1, function () {
 
 			same(M.warnings, [], ".warnings is an array of warning objects.");
 
 		});
 
-	test(".extend()", 1, function () {
+	// JMonad provides an extention mechanism that us used to add functionality
+	// to a monad constructor returned from a call to jMonad().
+	// However, jMonad does not allow a caller to extend() to overwrite any methods or
+	// properties that have already been attached to the monad constructor.
+	test(".extend()", 2, function () {
 
 			equals(typeof M.extend, "function", ".extend() is a function.");
 
-		});
-
-	test("Extend the monad constructor", 6, function () {
-
-			// The end() function already exists on the monad constructor protoype,
+			// The end() function already exists on the monad constructor prototype,
 			// so we cannot extend it.
 			M.extend("test extend", {end: function () {}});
 
@@ -213,21 +218,298 @@ function (load_event, undef) {
 				"jMonadWarning: Naming collision in extend() for 'end'.",
 				"Warned for clobbering.");
 
-			function a(M, R, x) {
-			}
+		});
 
-			M.extend("test extend", {x: a, y: 1});
+	// The monad constructor function is used to make any kind of monad the caller requires
+	// by passing in a name for the monad as the first parameter to the constructor. Each monad
+	// type is differentiated with a call to .extend() prior to monad construction.
+	test("Extend the monad constructor", 5, function () {
 
-			var m = M("test extend");
+			function a() {}
+
+			// Extend the "new type" monad constructor.
+			M.extend("new type", {x: a, y: 1});
+
+			// Here we create a monad type of "new type"
+			var m = M("new type");
 			equals(typeof m.x, "function", "Extended with function a.");
 			ok(m.x !== a, "Extended function is not the same.");
 			equals(m.y, 1, "Extended with number 1");
 
-			m = M("another test");
+			// Creation of a monad of "another type" does not carry the
+			// extensions we made to "new type".
+			m = M("another type");
 			equals(typeof m.x, "undefined", "Not extended with function a.");
 			equals(m.y, undefined, "Not extended with number 1");
 
 		});
+
+	// Here we extend a monad constructor, and then create and execute a new
+	// monad with it.
+	test("Extended monad.", 54, function () {
+
+			// Get a new constructor.
+			var C = jM();
+
+			// This function will be used to exend the monad constructor.
+			// M is the baton that gets passed through the monad.
+			// R is the return value from the previous method called on the monad.
+			// x is the value of the first parameter passed into this method.
+			// y is the value of the second parameter passed into this method.
+			function a(M, R, x, y) {
+
+				// Capture the value of `this` so
+				// we can use it in a callback closure.
+				var self = this;
+
+				// Make something happen later.
+				setTimeout(function () {
+				    self.progress("stacked", 1);
+
+						// The M parameter is known as the baton. It gets passed all the
+						// way through the monad execution. It should be designed to be
+						// mutated along the way.
+						equals(M.a, 0, "a inits to 0");
+						equals(M.b, 0, "b inits to 0");
+						equals(M.c, 0, "c inits to 0");
+						equals(M.d, 0, "d inits to 0");
+
+						M.a += 1;
+
+						same(R, undefined, "There is no return value yet.");
+
+						equals(x, 1, "First param is 1");
+						equals(y, "a", "Second param is 'a'");
+
+						// The internal .returns() method is used by a blocking async
+						// method to signal completion and return a value.
+						self.returns(1);
+
+					}, 0);
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 1);
+
+				// These two functions must exist, but are not tested here.
+				equals(typeof this.die, "function", "a.die() is a func");
+				equals(typeof this.end, "function", "a.end() is a func");
+			}
+
+			// By setting `blocking` to true, this function will block further
+			// execution of the monad until it calls its internal .returns()
+			// function.
+			a.blocking = true;
+
+			// Parameters are the same as for a().
+			function b(M, R, x, y) {
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 2);
+
+				// The internal functions .die() and .returns() are not provided to
+				// methods where the `blocking` property does not exist, or is set to
+				// false.
+				equals(this.die, undefined, "a.die() is NOT a func");
+				equals(this.returns, undefined, "a.returns() is NOT a func");
+
+				// The end function is available, but not tested here.
+				equals(typeof this.end, "function", "a.end() is a func");
+
+				// The M parameter is known as the baton. It gets passed all the way
+				// through the monad execution. It should be designed to be mutated
+				// along the way.
+				equals(M.a, 1, "a switched to 1");
+				equals(M.b, 0, "b stays 0 in b");
+				equals(M.c, 0, "c stays 0 in b");
+				equals(M.d, 0, "d stays 0 in b");
+
+				M.b += 1;
+
+				// In this case, a return value has been received.
+				same(R, 1, "Return value is 2.");
+
+				equals(x, 2, "First param is 2");
+				equals(y, "b", "Second param is 'b'");
+
+				// A non blocking function returns a value simply using the return
+				// statement.
+				return 2;
+
+			}
+
+			// Parameters are the same as for a().
+			function c(M, R, x, y) {
+
+				var self = this;
+
+				setTimeout(function () {
+				    self.progress("stacked", 2);
+
+						// The M parameter is known as the baton. It gets passed all the
+						// way through the monad execution. It should be designed to be
+						// mutated along the way.
+						equals(M.a, 1, "a stays 1 in c");
+						equals(M.b, 1, "b switched to 1");
+						equals(M.c, 0, "c stays 0 in c");
+						equals(M.d, 0, "d stays 0 in c");
+
+						M.c += 1;
+
+						same(R, 2, "Return value is 2.");
+
+						equals(x, 3, "First param is 3.");
+						equals(y, "c", "Second param is 'c'.");
+
+						self.returns(3);
+
+					}, 0);
+
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 3);
+
+				// These two functions must exist, but are not tested here.
+				equals(typeof this.die, "function", "a.die() is a func");
+				equals(typeof this.end, "function", "a.end() is a func");
+			}
+
+			// By setting `blocking` to true, this function will block further
+			// execution of the monad until it calls its internal .returns()
+			// function.
+			c.blocking = true;
+
+			// Parameters are the same as for a().
+			function d(M, R, x, y) {
+
+				// The internal .progress() method of a monad can send
+				// notifications to listeners attached at the bottom of this test
+				// function.
+				this.progress("start", 4);
+
+				// The internal functions .die() and .returns() are not provided to
+				// methods where the `blocking` property does not exist, or is set to
+				// false.
+				equals(this.die, undefined, "a.die() is NOT a func");
+				equals(this.returns, undefined, "a.returns() is NOT a func");
+
+				// The end function is available, but not tested here.
+				equals(typeof this.end, "function", "a.end() is a func");
+
+				// The M parameter is known as the baton. It gets passed all the way
+				// through the monad execution. It should be designed to be mutated
+				// along the way.
+				equals(M.a, 1, "a is 1 in c");
+				equals(M.b, 1, "b is 1 in d");
+				equals(M.c, 1, "c is 1 in d");
+				equals(M.d, 0, "d inits to 0 in d");
+
+				M.d += 1;
+
+				same(R, 3, "Return value is 3.");
+
+				equals(x, 4, "First param is 4");
+				equals(y, "d", "Second param is 'd'");
+
+				return 4;
+			}
+
+			C.extend("ex", {p:a, q:b, r:c, s:d});
+
+			var baton = {a:0, b:0, c:0, d:0};
+
+			stop();
+
+			var p = C("ex", baton)
+				.p(1, "a")
+				.q(2, "b")
+				.r(3, "c")
+				.s(4, "d");
+
+			var progress_listener = (function () {
+				var count = 0;
+
+				// Create and return a function for each progress event observed.
+				return function () {
+					count += 1;
+
+					if (count === 1) {
+						return function (name, val) {
+							equals(name, "start", "a sends start");
+							equals(val, 1, "a starts 1");
+						}
+					}
+					if (count === 2) {
+						return function (name, val) {
+							equals(name, "stacked", "a sends stack");
+							equals(val, 1, "a stacks 1");
+						}
+					}
+					if (count === 3) {
+						return function (name, val) {
+							equals(name, "start", "b sends start");
+							equals(val, 2, "b starts 2");
+						}
+					}
+					if (count === 4) {
+						return function (name, val) {
+							equals(name, "start", "c sends start");
+							equals(val, 3, "c starts 3");
+						}
+					}
+					if (count === 5) {
+						return function (name, val) {
+							equals(name, "stacked", "c sends stack");
+							equals(val, 2, "a stacks 2");
+						}
+					}
+					if (count === 6) {
+						return function (name, val) {
+							equals(name, "start", "d sends start");
+							equals(val, 4, "d starts 4");
+						}
+					}
+				};
+
+			}());
+
+			// Register the fulfilled, exception, and progress event listeners on the
+			// monad we just executed. This call will return a promise that can be
+			// used to register another set of listeners.
+			var p2 = p(
+					function fulfilled(M, r) {
+						ok(M === baton, "The baton was passed through.");
+						equals(r, 4, "The last return value was also passed.");
+						same(M, {a:1, b:1, c:1, d:1}, "The monad baton was mutated.");
+						start();
+					},
+					function exception(ex) {
+						ok(false, "exception should not be called.");
+						start();
+					},
+					function progress(name, val) {
+						progress_listener()(name, val);
+					});
+
+			equals(typeof p2, "function", "A promise returns a promise function.");
+
+		});
+
+	/*
+	test("monkey patching `this`", 1, function () {
+		});
+
+	test(".end() Short circuit in a monad.", 1, function () {
+		});
+
+	test(".die() Killing a blocking call." 1, function () {
+		});
+		*/
 
 }, false);
 	</script>
